@@ -1,0 +1,22 @@
+{
+    "name": "nodejs",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "serve": "nodemon index.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "express": "^4.18.2",
+        "http": "0.0.1-security"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.1"
+    },
+    "repository": {
+        "type": "bitbucket",
+        "url": "https://vanthanhctitsea@bitbucket.org/vanthanhctitsea/nodejs.git"
+    }
+}
