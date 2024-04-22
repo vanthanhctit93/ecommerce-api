@@ -1,8 +1,18 @@
-const http = require('http');
-const app = require('./src/app');
+const express = require('express');
+const errorHandler = require('./middleware/errorMiddleware');
 
-app.set('port', 3000);
+const port = 3000;
+const app = express();
 
-const server = http.createServer(app);
+app.use(express.json());
+app.use(express.urlencoded({ 
+    extended: false 
+}));
 
-server.listen(3000);
+app.use('/api', require('./routes/index'));
+
+app.use(errorHandler);
+
+app.listen(port, () => {
+    console.log(`Server started on port ${port}`);
+});
