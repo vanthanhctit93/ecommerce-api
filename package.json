@@ -9,8 +9,11 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "bcryptjs": "^2.4.3",
         "express": "^4.18.2",
-        "http": "0.0.1-security"
+        "express-async-handler": "^1.2.0",
+        "http": "0.0.1-security",
+        "jsonwebtoken": "^9.0.2"
     },
     "devDependencies": {
         "nodemon": "^3.0.1"
