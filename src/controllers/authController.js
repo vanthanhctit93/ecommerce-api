@@ -14,12 +14,18 @@ function isSimplePassword(password) {
     return password.length >= minLength && hasNumber.test(password) && hasSpecialChar.test(password) && hasUpperCase.test(password) && hasLowerCase.test(password);
 }
 
-exports.registerUser = async (req, res) => {
+const register = async (req, res, next) => {
     try {
         const { username, email, password } = req.body;
-        
-        if (isSimplePassword(password)) {
-            return res.status(400).json({ message: 'Mật khẩu quá đơn giản' });
+
+        if (!username || !email || !password) {
+            return res.status(200).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Vui lòng nhập đầy đủ thông tin' 
+                }
+            });
         }
 
         const existingUser = await UserModel.findOne({ 
@@ -30,24 +36,46 @@ exports.registerUser = async (req, res) => {
         });
 
         if (existingUser) {
-            return res.status(400).json({ message: 'Username hoặc email đã tồn tại' });
+            return res.status(200).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Username hoặc email đã tồn tại' 
+                }
+            });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 12);
-        const user = await UserModel.create({
+        if (isSimplePassword(password)) {
+            return res.status(200).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Mật khẩu quá đơn giản' 
+                }
+            });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const user = new UserModel({
             username,
             email,
             password: hashedPassword
         });
 
         await user.save();
-        res.status(201).json({ message: 'Đăng ký thành công' });
+        res.status(200).json({ 
+            status_code: 1,
+            data: {
+                user,
+                message: 'Đăng ký thành công',
+            } 
+        });
     } catch (err) {
         next(err);
     }
 }
 
-exports.loginUser = async (req, res, next) => {
+const login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
         const user = await UserModel.findOne({ username });
@@ -71,3 +99,5 @@ exports.loginUser = async (req, res, next) => {
         next(err);
     }
 }
+
+module.exports = { register, login };
