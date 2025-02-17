@@ -1,5 +1,5 @@
 const Mongoose = require('mongoose');
-const localDB = `mongodb://localhost:8000/auth`;
+const localDB = `mongodb://localhost:3000/auth`;
 
 const connectDB = async () => {
     await Mongoose.connect(localDB, {

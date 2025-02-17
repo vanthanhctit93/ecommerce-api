@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const postSchema = mongoose.Schema(
+const postSchema = new Schema(
     {
         id: {
             type: Number
@@ -21,10 +22,16 @@ const postSchema = mongoose.Schema(
         description: {
             type: String,
         },
+
+        createDate: {
+            type: Date,
+            default: new Date()
+        }
     },
     {
         timestamp: true
     }
 );
 
-module.exports = mongoose.model('Post', postSchema);
+const Post = mongoose.model('Post', postSchema);
+module.exports = Post;

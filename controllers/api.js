@@ -1,4 +1,4 @@
-import asyncHandler from "express-async-handler";
+const asyncHandler = require('express-async-handler');
 
 const getApi = asyncHandler(async (req, res) => {
     res.status(200).json({
