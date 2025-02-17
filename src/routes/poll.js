@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
-const pollController = require('../controllers/poll');
-const validate = require('../middleware/validate');
+const pollController = require('@/controllers/pollController');
+const validate = require('@/middlewares/validate');
 
 const router = express.Router();
 
@@ -22,3 +22,5 @@ router.get('/:id/vote',
     validate,
     pollController.votePoll
 );
+
+module.exports = router;
