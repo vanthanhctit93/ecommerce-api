@@ -81,20 +81,35 @@ const login = async (req, res, next) => {
         const user = await UserModel.findOne({ username });
 
         if (!user) {
-            return res.status(400).json({ message: 'Username không tồn tại' });
+            return res.status(200).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 4,
+                    message: 'Username không tồn tại' 
+                }
+            });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.status(400).json({ message: 'Mật khẩu không chính xác' });
+            return res.status(200).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 5,
+                    message: 'Mật khẩu không chính xác' 
+                }
+            });
         }
 
-        // check password simple
-
-
         const token = jwt.sign({ id: user._id, user: user.username }, JWT_SECRET, { expiresIn: '30d' });
-        res.status(200).json({ token });
+        res.status(200).json({
+            status_code: 1, 
+            data: { 
+                token,
+                message: 'Đăng nhập thành công', 
+            },
+        });
     } catch (err) {
         next(err);
     }

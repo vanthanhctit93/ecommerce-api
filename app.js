@@ -50,7 +50,7 @@ app.use('/', require('@/routes/index'));
 app.use('/auth', require('@/routes/auth'));
 app.use('/poll', require('@/routes/poll'));
 //app.use('/post', require('@/routes/post'));
-//app.use('/product', require('@/routes/product'));
+app.use('/product', require('@/routes/product'));
 
 
 io.on('connection', (socket) => {
