@@ -19,10 +19,10 @@ app.post('/sendsms', (req, res) => {
     })
 })
 
-const nex = new nexmo({
-    apiKey: '2bf574a1',
-    apiSecret: '55sWsTNYDxhnEz2v'
-});
+// const nex = new nexmo({
+//     apiKey: '2bf574a1',
+//     apiSecret: '55sWsTNYDxhnEz2v'
+// });
 
 sendSMS = (fromPhone, toPhone, content, callback) => {
     nex.message.sendSms(fromPhone, toPhone, content, {
