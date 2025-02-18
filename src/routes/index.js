@@ -1,8 +1,12 @@
-const express = require('express');
+import express from 'express';
+import auth from './auth.js';
+import product from './product.js';
 const router = express.Router();
-const { getApi, setApi, updateApi, deleteApi } = require('../controllers/api')
 
-router.route('/').get(getApi).post(setApi)
-router.route('/:id').put(updateApi).delete(deleteApi)
+//router.use('/', require('@routes/index'));
+router.use('/auth', auth);
+//router.use('/poll', require('@routes/poll'));
+//app.use('/post', require('@/routes/post'));
+router.use('/product', product);
 
-module.exports = router;
+export default router;

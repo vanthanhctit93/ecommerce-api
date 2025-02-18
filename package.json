@@ -2,24 +2,21 @@
     "name": "nodejs",
     "version": "1.0.0",
     "description": "",
-    "main": "app.js",
+    "main": "src/app.js",
+    "type": "module",
     "scripts": {
-        "start": "nodemon app.js",
-        "serve": "nodemon app.js"
+        "start": "nodemon src/app.js",
+        "serve": "nodemon src/app.js"
     },
     "author": "",
     "license": "ISC",
-    "_moduleAliases": {
-        "@root": ".",
-        "@": "src/"
-    },
+    
     "dependencies": {
         "bcryptjs": "^2.4.3",
         "express": "^4.18.2",
         "express-async-handler": "^1.2.0",
         "http": "0.0.1-security",
         "jsonwebtoken": "^9.0.2",
-        "module-alias": "^2.2.3",
         "mongoose": "^8.3.2",
         "nexmo": "^2.9.1",
         "routes": "^2.1.0",
@@ -33,9 +30,5 @@
         "helmet": "^8.0.0",
         "nodemon": "^3.0.1",
         "path": "^0.12.7"
-    },
-    "repository": {
-        "type": "bitbucket",
-        "url": "https://vanthanhctitsea@bitbucket.org/vanthanhctitsea/nodejs.git"
     }
 }
