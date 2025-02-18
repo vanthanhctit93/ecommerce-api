@@ -1,5 +1,5 @@
-const e = require('express');
-const TaskModel = require('../models/Task');
+import express from 'express';
+import TaskModel from '../model/Task';
 
 exports.createTask = async (req, res, next) => {
     try {

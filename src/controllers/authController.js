@@ -1,6 +1,6 @@
-const UserModel = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import UserModel from '../models/User.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || '';
 
@@ -14,7 +14,7 @@ function isSimplePassword(password) {
     return password.length >= minLength && hasNumber.test(password) && hasSpecialChar.test(password) && hasUpperCase.test(password) && hasLowerCase.test(password);
 }
 
-const register = async (req, res, next) => {
+export const register = async (req, res, next) => {
     try {
         const { username, email, password } = req.body;
 
@@ -75,7 +75,7 @@ const register = async (req, res, next) => {
     }
 }
 
-const login = async (req, res, next) => {
+export const login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
         const user = await UserModel.findOne({ username });
@@ -115,4 +115,3 @@ const login = async (req, res, next) => {
     }
 }
 
-module.exports = { register, login };

@@ -1,7 +1,7 @@
-const express = require('express');
-const { body } = require('express-validator');
-const pollController = require('@/controllers/pollController');
-const validate = require('@/middlewares/validate');
+import express from 'express';
+import { body } from 'express-validator';
+import pollController from '@/controllers/pollController';
+import validate from '@/middlewares/validate';
 
 const router = express.Router();
 

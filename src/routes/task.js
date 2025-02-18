@@ -1,8 +1,8 @@
-const express = require('express');
-const { body } = require('express-validator');
-const taskController = require('../controllers/task');
-const validate = require('../middleware/validate');
-const auth = require('@/middlewares/auth.middleware');
+import express from'express';
+import { body } from'express-validator';
+import taskController from'../controllers/task';
+import validate from'../middleware/validate';
+import auth from'@/middlewares/auth.middleware';
 
 const router = express.Router();
 
@@ -21,4 +21,4 @@ router.get('/:id', auth, taskController.getTask);
 router.put('/:id', auth, taskController.updateTask);
 router.delete('/:id', auth, taskController.deleteTask);
 
-module.exports = router;
+export default router;

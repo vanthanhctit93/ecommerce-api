@@ -1,5 +1,4 @@
-const { text } = require('express');
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const PollSchema = mongoose.Schema(
     {
@@ -24,4 +23,6 @@ const PollSchema = mongoose.Schema(
     }
 );
 
-module.exports = mongoose.model('Poll', PollSchema);
+const Poll = mongoose.model('Poll', PollSchema);
+
+export default Poll;

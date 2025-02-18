@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const AuthSchema = new mongoose.Schema({
     username: {
@@ -20,4 +20,4 @@ const AuthSchema = new mongoose.Schema({
 
 const Auth = mongoose.model('Auth', AuthSchema);
 
-module.exports = Auth;
+export default Auth;

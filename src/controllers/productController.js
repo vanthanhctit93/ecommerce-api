@@ -1,6 +1,6 @@
-const ProductModel = require('../models/Product');
+import ProductModel from '../models/Product.js';
 
-const createProduct = async (req, res) => {
+export const createProduct = async (req, res) => {
     try {
         const { sku, title, thumbnail, description, price } = req.body;
 
@@ -47,7 +47,7 @@ const createProduct = async (req, res) => {
     }
 }
 
-const getAllProducts = async (req, res) => {
+export const getAllProducts = async (req, res) => {
     try {
         const products = await ProductModel.find();
 
@@ -62,7 +62,7 @@ const getAllProducts = async (req, res) => {
     }
 }
 
-const getProductById = async (req, res) => {
+export const getProductById = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -89,7 +89,7 @@ const getProductById = async (req, res) => {
     }
 }
 
-const updateProduct = async (req, res) => {
+export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
         const { sku, title, thumbnail, description, price } = req.body;
@@ -115,7 +115,7 @@ const updateProduct = async (req, res) => {
     }
 }
 
-const deleteProduct = async (req, res) => {
+export const deleteProduct = async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -131,5 +131,3 @@ const deleteProduct = async (req, res) => {
         next(err);
     }
 }
-
-module.exports = { getAllProducts, getProductById, createProduct, updateProduct, deleteProduct };
