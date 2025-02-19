@@ -12,6 +12,8 @@ import path from 'path';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import session from 'express-session';
+import bodyParser from 'body-parser';
 import router from './routes/index.js';
 import { Server as SocketIO } from 'socket.io';
 import connectDB from './config/db.js';
@@ -41,12 +43,23 @@ app.use(rateLimit({
 }));
 
 // Middleware
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        maxAge: 3600000,
+    },
+}));
+
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.use(express.urlencoded({ 
     extended: true 
 }));
 app.use(express.json());
-
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/', router);
