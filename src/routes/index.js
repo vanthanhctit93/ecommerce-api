@@ -2,10 +2,25 @@ import express from 'express';
 import { register, login, refreshToken, logout } from '../controllers/authController.js';
 import { getProfile, updateProfile, changePassword, deleteAccount } from '../controllers/userController.js';
 import { getAllArticles, getArticleById, createArticle, updateArticle, deleteArticle } from '../controllers/articleController.js';
-import { getAllProducts, getProductById, createProduct, updateProduct, deleteProduct } from '../controllers/productController.js';
+import { 
+    getAllProducts, 
+    getProductById, 
+    createProduct, 
+    updateProduct, 
+    deleteProduct,
+    restoreProduct,
+    bulkUpdateProducts,
+    bulkDeleteProducts,
+    bulkPublishProducts,
+    bulkRestoreProducts,
+    uploadProductImages,
+    deleteProductImage,
+    setPrimaryImage
+} from '../controllers/productController.js';
 import { getAllCarts, addToCart, updateCart, removeFromCart } from '../controllers/cartController.js';
 import { checkout, stripeWebhook } from '../controllers/paymentController.js';
 import { protect } from '../middlewares/authMiddleware.js';
+import upload from '../config/upload.js';
 
 const router = express.Router();
 
@@ -37,11 +52,26 @@ router.delete('/article/delete/:id', protect, deleteArticle); // Private
 // ========================================
 // PRODUCT ROUTES
 // ========================================
-router.get('/product/list', getAllProducts); // Public
-router.get('/product/:id', getProductById); // Public
-router.post('/product/create', protect, createProduct); // Private
-router.put('/product/update/:id', protect, updateProduct); // Private
-router.delete('/product/delete/:id', protect, deleteProduct); // Private
+// Public routes
+router.get('/product/list', getAllProducts);
+router.get('/product/:id', getProductById);
+
+// Private routes - Single operations
+router.post('/product/create', protect, createProduct);
+router.put('/product/update/:id', protect, updateProduct);
+router.delete('/product/delete/:id', protect, deleteProduct);
+router.put('/product/restore/:id', protect, restoreProduct);
+
+// Private routes - Bulk operations
+router.put('/product/bulk-update', protect, bulkUpdateProducts);
+router.delete('/product/bulk-delete', protect, bulkDeleteProducts);
+router.put('/product/bulk-publish', protect, bulkPublishProducts);
+router.put('/product/bulk-restore', protect, bulkRestoreProducts);
+
+// Private routes - Image upload
+router.post('/product/upload-images/:id', protect, upload.array('images', 10), uploadProductImages);
+router.delete('/product/delete-image/:id', protect, deleteProductImage);
+router.put('/product/set-primary-image/:id', protect, setPrimaryImage);
 
 // ========================================
 // CART ROUTES (All Private)

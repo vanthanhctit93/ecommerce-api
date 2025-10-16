@@ -20,6 +20,7 @@
         "http": "0.0.1-security",
         "jsonwebtoken": "^9.0.2",
         "mongoose": "^8.3.2",
+        "multer": "^2.0.2",
         "nexmo": "^2.9.1",
         "routes": "^2.1.0",
         "socket.io": "^4.8.1",

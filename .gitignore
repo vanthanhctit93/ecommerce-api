@@ -54,3 +54,7 @@ Thumbs.db
 *.mov
 *.wmv
 
+# Uploaded files (keep folder structure but ignore files)
+uploads/**/*
+!uploads/**/.gitkeep
+
