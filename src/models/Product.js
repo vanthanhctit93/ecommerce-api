@@ -29,7 +29,6 @@ const productSchema = mongoose.Schema({
         type: String,
     },
 
-
     salePrice: {
         type: Number
     },
@@ -48,6 +47,12 @@ const productSchema = mongoose.Schema({
 
     isFeatured: {
         type: Boolean
+    },
+
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
     },
 
     timestamp: {

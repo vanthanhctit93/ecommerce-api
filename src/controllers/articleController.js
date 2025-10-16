@@ -134,6 +134,16 @@ export const updateArticle = async (req, res) => {
             });
         }
 
+        if (post.author.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Bạn không có quyền chỉnh sửa bài viết này' 
+                }
+            });
+        }
+
         post.title = title;
         post.content = content;
 
@@ -170,7 +180,18 @@ export const deleteArticle = async (req, res) => {
             });
         }
 
-        await post.remove();
+        if (post.author.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Bạn không có quyền xóa bài viết này' 
+                }
+            });
+        }
+
+        await post.deleteOne();
+        
         res.status(200).json({ 
             status_code: 1,
             data: {

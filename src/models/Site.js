@@ -23,4 +23,6 @@ const SiteSchema = mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Site', SiteSchema);
+const Site = mongoose.model('Site', SiteSchema);
+
+export default Site;

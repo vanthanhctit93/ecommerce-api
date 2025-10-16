@@ -8,6 +8,11 @@ node_modules/
 dist/
 package-lock.json
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Compiled Java class files
 *.class
 

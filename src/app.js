@@ -1,23 +1,23 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { fileURLToPath } from 'url';
-import http from 'http';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 import express from 'express';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import http from 'http';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import bodyParser from 'body-parser';
-import router from './routes/index.js';
 import { Server as SocketIO } from 'socket.io';
+import router from './routes/index.js';
 import connectDB from './config/db.js';
 import errorHandler from './middlewares/errorMiddleware.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Connect to MongoDB
 connectDB();
@@ -27,45 +27,65 @@ const server = http.createServer(app);
 const io = new SocketIO(server);
 const PORT = process.env.PORT || 8000;
 
+// Socket.IO middleware
 app.use((req, res, next) => {
     req.io = io;
     next();
 });
 
-app.use(express.json());
+// Security middleware
 app.use(helmet());
 app.use(cors());
 
-// giới hạn request
+// Rate limiting
 app.use(rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    windowMs: 15 * 60 * 1000, // 15 phút
+    max: 100, // Giới hạn 100 requests
+    message: 'Quá nhiều requests từ IP này, vui lòng thử lại sau.'
 }));
 
-// Middleware
+// Body parser
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Session
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URL,
+        collectionName: 'sessions',
+        ttl: 60 * 60 // 1 hour
+    }),
     cookie: {
-        maxAge: 3600000,
-    },
+        maxAge: 3600000, // 1 giờ
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production' // HTTPS only in production
+    }
 }));
 
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
-
-app.use(express.urlencoded({ 
-    extended: true 
-}));
-app.use(express.json());
 
 // Routes
 app.use('/', router);
 
+// Error handler (phải để cuối cùng)
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
+// Socket.IO connection
+io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+    
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
 });
+
+server.listen(PORT, () => {
+    console.log(`Server started on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+export default app;

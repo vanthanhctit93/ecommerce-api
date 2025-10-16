@@ -7,6 +7,7 @@ const articleSchema = mongoose.Schema({
 
     title: {
         type: String,
+        required: true
     },
 
     excerpt: {
@@ -21,9 +22,15 @@ const articleSchema = mongoose.Schema({
         type: String,
     },
 
+    author: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
+    },
+
     createDate: {
         type: Date,
-        default: new Date()
+        default: Date.now 
     },
 
     timestamp: {
