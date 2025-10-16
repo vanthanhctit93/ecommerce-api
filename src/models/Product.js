@@ -125,7 +125,10 @@ const productSchema = mongoose.Schema({
 
     // Thông tin vận chuyển
     weight: {
-        value: Number,
+        value: {
+            type: Number,
+            default: 0.5  // ✅ Default 500g
+        },
         unit: {
             type: String,
             enum: ['kg', 'g', 'lb'],

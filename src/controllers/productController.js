@@ -289,22 +289,22 @@ export const updateProduct = async (req, res, next) => {
             }
 
             // TODO: Kiểm tra pending orders
-            const pendingOrders = await Order.aggregate([
-                { $match: { 'items.productId': product._id, status: 'pending' } },
-                { $unwind: '$items' },
-                { $match: { 'items.productId': product._id } },
-                { $group: { _id: null, totalQuantity: { $sum: '$items.quantity' } } }
-            ]);
+            // const pendingOrders = await Order.aggregate([
+            //     { $match: { 'items.productId': product._id, status: 'pending' } },
+            //     { $unwind: '$items' },
+            //     { $match: { 'items.productId': product._id } },
+            //     { $group: { _id: null, totalQuantity: { $sum: '$items.quantity' } } }
+            // ]);
             
-            if (pendingOrders[0] && inStock < pendingOrders[0].totalQuantity) {
-                return res.status(400).json({ 
-                    status_code: 0,
-                    data: {
-                        error_code: 4,
-                        message: `Không thể giảm tồn kho xuống ${inStock}. Có ${pendingOrders[0].totalQuantity} sản phẩm trong đơn hàng chưa xử lý.` 
-                    }
-                });
-            }
+            // if (pendingOrders[0] && inStock < pendingOrders[0].totalQuantity) {
+            //     return res.status(400).json({ 
+            //         status_code: 0,
+            //         data: {
+            //             error_code: 4,
+            //             message: `Không thể giảm tồn kho xuống ${inStock}. Có ${pendingOrders[0].totalQuantity} sản phẩm trong đơn hàng chưa xử lý.` 
+            //         }
+            //     });
+            // }
 
             product.inStock = inStock;
         }

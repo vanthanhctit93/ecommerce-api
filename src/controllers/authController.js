@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import UserModel from '../models/User.js';
 import { isSimplePassword } from '../utils/validators.js'; 
+import { mergeGuestCart } from './cartController.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-secret-key';
@@ -61,7 +62,7 @@ export const register = async (req, res, next) => {
             });
         }
 
-        // ✅ Sử dụng isSimplePassword từ utils
+        // Sử dụng isSimplePassword từ utils
         if (isSimplePassword(password)) {
             return res.status(400).json({ 
                 status_code: 0,
@@ -142,6 +143,12 @@ export const login = async (req, res, next) => {
 
         const accessToken = generateAccessToken(user._id, user.username);
         const refreshToken = generateRefreshToken(user._id, user.username);
+
+        // Gán user vào req để merge cart
+        req.user = user;
+
+        // Merge guest cart với user cart
+        await mergeGuestCart(req);
 
         res.status(200).json({
             status_code: 1, 
