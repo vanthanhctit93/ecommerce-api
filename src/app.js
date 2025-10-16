@@ -67,6 +67,7 @@ app.use(session({
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'))); // Serve uploads folder
 
 // Routes
 app.use('/', router);

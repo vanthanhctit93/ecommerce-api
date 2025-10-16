@@ -1,4 +1,11 @@
 import ProductModel from '../models/Product.js';
+import { isValidSKU } from '../utils/validators.js';
+import path from 'path';
+import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const createProduct = async (req, res, next) => {
     try {
@@ -21,6 +28,58 @@ export const createProduct = async (req, res, next) => {
                 data: {
                     error_code: 1,
                     message: 'Vui lòng nhập đầy đủ thông tin (sku, title, regularPrice)' 
+                }
+            });
+        }
+
+        if (regularPrice < 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Giá sản phẩm không thể âm' 
+                }
+            });
+        }
+
+        if (salePrice && salePrice < 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 4,
+                    message: 'Giá sale không thể âm' 
+                }
+            });
+        }
+
+        if (salePrice && salePrice > regularPrice) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 5,
+                    message: 'Giá sale không thể lớn hơn giá gốc' 
+                }
+            });
+        }
+
+        // Validation tồn kho
+        if (inStock < 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 6,
+                    message: 'Số lượng tồn kho không thể âm' 
+                }
+            });
+        }
+
+        // Validate SKU format
+        if (!isValidSKU(sku)) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 7,
+                    message: 'SKU không hợp lệ (3-50 ký tự, chỉ chữ hoa, số và dấu gạch ngang)' 
                 }
             });
         }
@@ -67,12 +126,81 @@ export const createProduct = async (req, res, next) => {
 
 export const getAllProducts = async (req, res) => {
     try {
-        const products = await ProductModel.find();
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 12;
+        const skip = (page - 1) * limit;
+
+        // Filters
+        const filters = { isDeleted: false };
+        
+        if (req.query.category) {
+            filters.categories = req.query.category;
+        }
+        
+        if (req.query.isPublished !== undefined) {
+            filters.isPublished = req.query.isPublished === 'true';
+        }
+        
+        if (req.query.isFeatured !== undefined) {
+            filters.isFeatured = req.query.isFeatured === 'true';
+        }
+
+        // Price range filter
+        if (req.query.minPrice || req.query.maxPrice) {
+            filters.regularPrice = {};
+            if (req.query.minPrice) filters.regularPrice.$gte = parseFloat(req.query.minPrice);
+            if (req.query.maxPrice) filters.regularPrice.$lte = parseFloat(req.query.maxPrice);
+        }
+
+        // Search
+        if (req.query.search) {
+            filters.$text = { $search: req.query.search };
+        }
+
+        // Sorting
+        let sort = {};
+        switch (req.query.sort) {
+            case 'price_asc':
+                sort = { regularPrice: 1 };
+                break;
+            case 'price_desc':
+                sort = { regularPrice: -1 };
+                break;
+            case 'newest':
+                sort = { createdAt: -1 };
+                break;
+            case 'popular':
+                sort = { soldCount: -1 };
+                break;
+            case 'rating':
+                sort = { rating: -1 };
+                break;
+            default:
+                sort = { createdAt: -1 };
+        }
+
+        const products = await ProductModel
+            .find(filters)
+            .populate('owner', 'username email')
+            .populate('categories', 'name slug')
+            .sort(sort)
+            .skip(skip)
+            .limit(limit)
+            .select('-isDeleted -deletedAt -deletedBy');
+
+        const total = await ProductModel.countDocuments(filters);
 
         return res.status(200).json({ 
             status_code: 1,
             data: {
-                products
+                products,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    pages: Math.ceil(total / limit)
+                },
+                filters: req.query
             }
         });
     } catch (err) {
@@ -124,17 +252,7 @@ export const getProductById = async (req, res) => {
 export const updateProduct = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { 
-            sku, 
-            title, 
-            thumbnail, 
-            description, 
-            salePrice, 
-            regularPrice,
-            inStock,
-            isPublished,
-            isFeatured
-        } = req.body;
+        const { inStock, ...otherUpdates } = req.body;
 
         const product = await ProductModel.findById(id);
 
@@ -158,16 +276,45 @@ export const updateProduct = async (req, res, next) => {
             });
         }
 
-        // Cập nhật từng field
-        if (sku) product.sku = sku;
-        if (title) product.title = title;
-        if (thumbnail) product.thumbnail = thumbnail;
-        if (description) product.description = description;
-        if (salePrice !== undefined) product.salePrice = salePrice;
-        if (regularPrice !== undefined) product.regularPrice = regularPrice;
-        if (inStock !== undefined) product.inStock = inStock;
-        if (isPublished !== undefined) product.isPublished = isPublished;
-        if (isFeatured !== undefined) product.isFeatured = isFeatured;
+        // Kiểm tra tồn kho nếu có cập nhật
+        if (inStock !== undefined) {
+            if (inStock < 0) {
+                return res.status(400).json({ 
+                    status_code: 0,
+                    data: {
+                        error_code: 3,
+                        message: 'Số lượng tồn kho không thể âm' 
+                    }
+                });
+            }
+
+            // TODO: Kiểm tra pending orders
+            // const pendingOrders = await Order.aggregate([
+            //     { $match: { 'items.productId': product._id, status: 'pending' } },
+            //     { $unwind: '$items' },
+            //     { $match: { 'items.productId': product._id } },
+            //     { $group: { _id: null, totalQuantity: { $sum: '$items.quantity' } } }
+            // ]);
+            
+            // if (pendingOrders[0] && inStock < pendingOrders[0].totalQuantity) {
+            //     return res.status(400).json({ 
+            //         status_code: 0,
+            //         data: {
+            //             error_code: 4,
+            //             message: `Không thể giảm tồn kho xuống ${inStock}. Có ${pendingOrders[0].totalQuantity} sản phẩm trong đơn hàng chưa xử lý.` 
+            //         }
+            //     });
+            // }
+
+            product.inStock = inStock;
+        }
+
+        // Cập nhật các fields khác
+        Object.keys(otherUpdates).forEach(key => {
+            if (otherUpdates[key] !== undefined) {
+                product[key] = otherUpdates[key];
+            }
+        });
 
         await product.save();
 
@@ -190,8 +337,8 @@ export const deleteProduct = async (req, res, next) => {
 
         const product = await ProductModel.findById(id);
 
-        if (!product) {
-            return res.status(200).json({ 
+        if (!product || product.isDeleted) {
+            return res.status(404).json({ 
                 status_code: 0,
                 data: {
                     error_code: 1,
@@ -210,7 +357,11 @@ export const deleteProduct = async (req, res, next) => {
             });
         }
 
-        await product.deleteOne();
+        // Soft delete
+        product.isDeleted = true;
+        product.deletedAt = Date.now();
+        product.deletedBy = req.user._id;
+        await product.save();
 
         return res.status(200).json({ 
             status_code: 1,
@@ -221,4 +372,632 @@ export const deleteProduct = async (req, res, next) => {
     } catch (err) {
         next(err);
     }
-}
+};
+
+// Restore product
+export const restoreProduct = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const product = await ProductModel.findOne({ 
+            _id: id,
+            isDeleted: true,
+            owner: req.user._id
+        });
+
+        if (!product) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Sản phẩm không tồn tại hoặc chưa bị xóa' 
+                }
+            });
+        }
+
+        product.isDeleted = false;
+        product.deletedAt = null;
+        product.deletedBy = null;
+        await product.save();
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                product,
+                message: 'Khôi phục sản phẩm thành công'
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * Bulk update products (Cập nhật nhiều sản phẩm cùng lúc)
+ * @route PUT /product/bulk-update
+ * @access Private
+ */
+export const bulkUpdateProducts = async (req, res, next) => {
+    try {
+        const { productIds, updates } = req.body;
+
+        // Validation
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Danh sách sản phẩm không hợp lệ' 
+                }
+            });
+        }
+
+        if (!updates || Object.keys(updates).length === 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Không có thông tin cập nhật' 
+                }
+            });
+        }
+
+        // Kiểm tra ownership - chỉ update sản phẩm của user hiện tại
+        const products = await ProductModel.find({
+            _id: { $in: productIds },
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (products.length !== productIds.length) {
+            return res.status(403).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Bạn không có quyền cập nhật một số sản phẩm hoặc sản phẩm không tồn tại' 
+                }
+            });
+        }
+
+        // Validation giá tiền nếu có trong updates
+        if (updates.regularPrice !== undefined && updates.regularPrice < 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 4,
+                    message: 'Giá sản phẩm không thể âm' 
+                }
+            });
+        }
+
+        if (updates.salePrice !== undefined) {
+            if (updates.salePrice < 0) {
+                return res.status(400).json({ 
+                    status_code: 0,
+                    data: {
+                        error_code: 5,
+                        message: 'Giá sale không thể âm' 
+                    }
+                });
+            }
+        }
+
+        if (updates.inStock !== undefined && updates.inStock < 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 6,
+                    message: 'Số lượng tồn kho không thể âm' 
+                }
+            });
+        }
+
+        // Perform bulk update
+        const result = await ProductModel.updateMany(
+            { 
+                _id: { $in: productIds }, 
+                owner: req.user._id,
+                isDeleted: false
+            },
+            { $set: updates }
+        );
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                matchedCount: result.matchedCount,
+                modifiedCount: result.modifiedCount,
+                message: `Đã cập nhật ${result.modifiedCount} sản phẩm`
+            }
+        });
+    } catch (err) {
+        console.error('Bulk update error:', err);
+        next(err);
+    }
+};
+
+/**
+ * Bulk delete products (Xóa nhiều sản phẩm cùng lúc - soft delete)
+ * @route DELETE /product/bulk-delete
+ * @access Private
+ */
+export const bulkDeleteProducts = async (req, res, next) => {
+    try {
+        const { productIds } = req.body;
+
+        // Validation
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Danh sách sản phẩm không hợp lệ' 
+                }
+            });
+        }
+
+        // Kiểm tra ownership
+        const products = await ProductModel.find({
+            _id: { $in: productIds },
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (products.length === 0) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Không tìm thấy sản phẩm nào hoặc đã bị xóa' 
+                }
+            });
+        }
+
+        // Perform bulk soft delete
+        const result = await ProductModel.updateMany(
+            { 
+                _id: { $in: productIds }, 
+                owner: req.user._id,
+                isDeleted: false
+            },
+            { 
+                $set: { 
+                    isDeleted: true, 
+                    deletedAt: Date.now(),
+                    deletedBy: req.user._id
+                }
+            }
+        );
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                deletedCount: result.modifiedCount,
+                message: `Đã xóa ${result.modifiedCount} sản phẩm`
+            }
+        });
+    } catch (err) {
+        console.error('Bulk delete error:', err);
+        next(err);
+    }
+};
+
+/**
+ * Bulk publish/unpublish products
+ * @route PUT /product/bulk-publish
+ * @access Private
+ */
+export const bulkPublishProducts = async (req, res, next) => {
+    try {
+        const { productIds, isPublished } = req.body;
+
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Danh sách sản phẩm không hợp lệ' 
+                }
+            });
+        }
+
+        if (typeof isPublished !== 'boolean') {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Trạng thái publish không hợp lệ' 
+                }
+            });
+        }
+
+        // Kiểm tra ownership
+        const products = await ProductModel.find({
+            _id: { $in: productIds },
+            owner: req.user._id,
+            isDeleted: false
+        });
+
+        if (products.length === 0) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Không tìm thấy sản phẩm nào' 
+                }
+            });
+        }
+
+        const result = await ProductModel.updateMany(
+            { 
+                _id: { $in: productIds }, 
+                owner: req.user._id,
+                isDeleted: false
+            },
+            { $set: { isPublished } }
+        );
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                modifiedCount: result.modifiedCount,
+                message: `Đã ${isPublished ? 'xuất bản' : 'ẩn'} ${result.modifiedCount} sản phẩm`
+            }
+        });
+    } catch (err) {
+        console.error('Bulk publish error:', err);
+        next(err);
+    }
+};
+
+/**
+ * Bulk restore deleted products
+ * @route PUT /product/bulk-restore
+ * @access Private
+ */
+export const bulkRestoreProducts = async (req, res, next) => {
+    try {
+        const { productIds } = req.body;
+
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Danh sách sản phẩm không hợp lệ' 
+                }
+            });
+        }
+
+        // Kiểm tra ownership và product đã bị xóa
+        const products = await ProductModel.find({
+            _id: { $in: productIds },
+            owner: req.user._id,
+            isDeleted: true
+        });
+
+        if (products.length === 0) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Không tìm thấy sản phẩm nào hoặc sản phẩm chưa bị xóa' 
+                }
+            });
+        }
+
+        const result = await ProductModel.updateMany(
+            { 
+                _id: { $in: productIds }, 
+                owner: req.user._id,
+                isDeleted: true
+            },
+            { 
+                $set: { 
+                    isDeleted: false,
+                    deletedAt: null,
+                    deletedBy: null
+                }
+            }
+        );
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                restoredCount: result.modifiedCount,
+                message: `Đã khôi phục ${result.modifiedCount} sản phẩm`
+            }
+        });
+    } catch (err) {
+        console.error('Bulk restore error:', err);
+        next(err);
+    }
+};
+
+/**
+ * Upload product images
+ * @route POST /product/upload-images/:id
+ * @access Private
+ */
+export const uploadProductImages = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        // Tìm sản phẩm
+        const product = await ProductModel.findById(id);
+
+        if (!product) {
+            // Xóa files đã upload nếu product không tồn tại
+            if (req.files && req.files.length > 0) {
+                for (const file of req.files) {
+                    await fs.unlink(file.path).catch(console.error);
+                }
+            }
+            
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Sản phẩm không tồn tại' 
+                }
+            });
+        }
+
+        // Kiểm tra ownership
+        if (product.owner.toString() !== req.user._id.toString()) {
+            // Xóa files đã upload
+            if (req.files && req.files.length > 0) {
+                for (const file of req.files) {
+                    await fs.unlink(file.path).catch(console.error);
+                }
+            }
+            
+            return res.status(403).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Bạn không có quyền upload ảnh cho sản phẩm này' 
+                }
+            });
+        }
+
+        // Kiểm tra có files không
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Vui lòng chọn ảnh để upload' 
+                }
+            });
+        }
+
+        // Tạo image objects
+        const images = req.files.map((file, index) => ({
+            url: `/uploads/products/${file.filename}`,
+            alt: product.title,
+            isPrimary: index === 0 && (!product.images || product.images.length === 0)
+        }));
+
+        // Thêm vào product (khởi tạo array nếu chưa có)
+        if (!product.images) {
+            product.images = [];
+        }
+        product.images.push(...images);
+
+        // Set thumbnail nếu chưa có
+        if (!product.thumbnail && images.length > 0) {
+            product.thumbnail = images[0].url;
+        }
+
+        await product.save();
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                images,
+                product,
+                message: `Upload thành công ${images.length} ảnh`
+            }
+        });
+    } catch (err) {
+        console.error('Upload images error:', err);
+        
+        // Xóa files nếu có lỗi
+        if (req.files && req.files.length > 0) {
+            for (const file of req.files) {
+                await fs.unlink(file.path).catch(console.error);
+            }
+        }
+        
+        next(err);
+    }
+};
+
+/**
+ * Delete product image
+ * @route DELETE /product/delete-image/:id
+ * @access Private
+ */
+export const deleteProductImage = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { imageUrl } = req.body;
+
+        if (!imageUrl) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Image URL không được cung cấp' 
+                }
+            });
+        }
+
+        const product = await ProductModel.findById(id);
+
+        if (!product) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Sản phẩm không tồn tại' 
+                }
+            });
+        }
+
+        if (product.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Bạn không có quyền xóa ảnh này' 
+                }
+            });
+        }
+
+        // Tìm và xóa image
+        if (!product.images || product.images.length === 0) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 4,
+                    message: 'Sản phẩm không có ảnh nào' 
+                }
+            });
+        }
+
+        const imageIndex = product.images.findIndex(img => img.url === imageUrl);
+        
+        if (imageIndex === -1) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 5,
+                    message: 'Ảnh không tồn tại trong sản phẩm' 
+                }
+            });
+        }
+
+        // Xóa file từ disk
+        const filename = path.basename(imageUrl);
+        const filePath = path.join(__dirname, '../../uploads/products', filename);
+        
+        try {
+            await fs.unlink(filePath);
+            console.log('Deleted file:', filePath);
+        } catch (error) {
+            console.error('Error deleting file:', error);
+            // Continue even if file deletion fails
+        }
+
+        // Xóa khỏi array
+        product.images.splice(imageIndex, 1);
+
+        // Nếu xóa thumbnail, set lại thumbnail
+        if (product.thumbnail === imageUrl) {
+            product.thumbnail = product.images.length > 0 ? product.images[0].url : null;
+        }
+
+        await product.save();
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                product,
+                message: 'Xóa ảnh thành công'
+            }
+        });
+    } catch (err) {
+        console.error('Delete image error:', err);
+        next(err);
+    }
+};
+
+/**
+ * Set primary image
+ * @route PUT /product/set-primary-image/:id
+ * @access Private
+ */
+export const setPrimaryImage = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { imageUrl } = req.body;
+
+        if (!imageUrl) {
+            return res.status(400).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 1,
+                    message: 'Image URL không được cung cấp' 
+                }
+            });
+        }
+
+        const product = await ProductModel.findById(id);
+
+        if (!product) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 2,
+                    message: 'Sản phẩm không tồn tại' 
+                }
+            });
+        }
+
+        if (product.owner.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 3,
+                    message: 'Bạn không có quyền thay đổi ảnh chính' 
+                }
+            });
+        }
+
+        if (!product.images || product.images.length === 0) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 4,
+                    message: 'Sản phẩm không có ảnh nào' 
+                }
+            });
+        }
+
+        // Reset tất cả isPrimary
+        product.images.forEach(img => {
+            img.isPrimary = false;
+        });
+
+        // Set primary cho ảnh được chọn
+        const selectedImage = product.images.find(img => img.url === imageUrl);
+        
+        if (!selectedImage) {
+            return res.status(404).json({ 
+                status_code: 0,
+                data: {
+                    error_code: 5,
+                    message: 'Ảnh không tồn tại trong sản phẩm' 
+                }
+            });
+        }
+
+        selectedImage.isPrimary = true;
+        product.thumbnail = imageUrl;
+
+        await product.save();
+
+        return res.status(200).json({ 
+            status_code: 1,
+            data: {
+                product,
+                message: 'Đặt ảnh chính thành công'
+            }
+        });
+    } catch (err) {
+        console.error('Set primary image error:', err);
+        next(err);
+    }
+};

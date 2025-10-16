@@ -76,3 +76,18 @@ export function sanitizeString(str) {
         .replace(/'/g, '&#x27;')
         .replace(/\//g, '&#x2F;');
 }
+
+/**
+ * Validate SKU format (chữ hoa, số, dấu gạch ngang, 3-50 ký tự)
+ * @param {string} sku - SKU cần kiểm tra
+ * @returns {boolean} - true nếu SKU hợp lệ
+ * 
+ * @example
+ * isValidSKU('PROD-001'); // true
+ * isValidSKU('abc'); // false (quá ngắn)
+ * isValidSKU('SKU#123'); // false (ký tự không hợp lệ)
+ */
+export function isValidSKU(sku) {
+    const skuRegex = /^[A-Z0-9-]{3,50}$/;
+    return skuRegex.test(sku);
+}
