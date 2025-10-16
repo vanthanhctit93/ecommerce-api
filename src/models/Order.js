@@ -27,26 +27,34 @@ const orderSchema = mongoose.Schema({
     }],
 
     shippingAddress: {
-        fullName: {
-            type: String,
-            required: true
+        fullName: String,
+        phone: String,
+        address: String,
+        provinceCode: String,
+        provinceName: String,
+        communeCode: String,
+        communeName: String,
+        fullAddress: String
+    },
+
+    shippingDetails: {
+        actualWeight: Number,
+        dimensions: {
+            length: Number,
+            width: Number,
+            height: Number
         },
-        phone: {
-            type: String,
-            required: true
-        },
-        address: {
-            type: String,
-            required: true
-        },
-        city: {
-            type: String,
-            required: true
-        },
-        postalCode: String,
-        country: {
-            type: String,
-            default: 'VN'
+        chargeableWeight: Number,
+        zone: String,
+        method: String,
+        estimatedDays: String,
+        cost: Number,
+        breakdown: {
+            baseCost: Number,
+            weightSurcharge: Number,
+            codFee: Number,
+            insuranceFee: Number,
+            vatFee: Number
         }
     },
 

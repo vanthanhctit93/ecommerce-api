@@ -1,0 +1,58 @@
+{
+    "totalProvinces": 34,
+    "totalCommunes": 3321,
+    "averageCommunesPerProvince": 98,
+    "provincesWithMostCommunes": [
+        {
+            "code": "79",
+            "name": "Thành phố Hồ Chí Minh",
+            "communesCount": 168
+        },
+        {
+            "code": "38",
+            "name": "Tỉnh Thanh Hóa",
+            "communesCount": 166
+        },
+        {
+            "code": "25",
+            "name": "Tỉnh Phú Thọ",
+            "communesCount": 148
+        },
+        {
+            "code": "52",
+            "name": "Tỉnh Gia Lai",
+            "communesCount": 135
+        },
+        {
+            "code": "40",
+            "name": "Tỉnh Nghệ An",
+            "communesCount": 130
+        },
+        {
+            "code": "37",
+            "name": "Tỉnh Ninh Bình",
+            "communesCount": 129
+        },
+        {
+            "code": "01",
+            "name": "Thành phố Hà Nội",
+            "communesCount": 126
+        },
+        {
+            "code": "08",
+            "name": "Tỉnh Tuyên Quang",
+            "communesCount": 124
+        },
+        {
+            "code": "68",
+            "name": "Tỉnh Lâm Đồng",
+            "communesCount": 124
+        },
+        {
+            "code": "86",
+            "name": "Tỉnh Vĩnh Long",
+            "communesCount": 124
+        }
+    ],
+    "provincesWithNoCommunes": []
+}

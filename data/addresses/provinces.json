@@ -1,0 +1,283 @@
+{
+    "metadata": {
+        "crawledAt": "2025-10-16T15:24:24.421Z",
+        "totalProvinces": 34,
+        "totalCommunes": 3321,
+        "source": "https://production.cas.so/address-kit/2025-07-01",
+        "version": "2025-07-01"
+    },
+    "provinces": [
+        {
+            "code": "01",
+            "name": "Thành phố Hà Nội",
+            "nameEn": "",
+            "administrativeLevel": "Thành phố Trung ương",
+            "fullName": "Thành phố Hà Nội",
+            "fullNameEn": ""
+        },
+        {
+            "code": "04",
+            "name": "Tỉnh Cao Bằng",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Cao Bằng",
+            "fullNameEn": ""
+        },
+        {
+            "code": "08",
+            "name": "Tỉnh Tuyên Quang",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Tuyên Quang",
+            "fullNameEn": ""
+        },
+        {
+            "code": "11",
+            "name": "Tỉnh Điện Biên",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Điện Biên",
+            "fullNameEn": ""
+        },
+        {
+            "code": "12",
+            "name": "Tỉnh Lai Châu",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Lai Châu",
+            "fullNameEn": ""
+        },
+        {
+            "code": "14",
+            "name": "Tỉnh Sơn La",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Sơn La",
+            "fullNameEn": ""
+        },
+        {
+            "code": "15",
+            "name": "Tỉnh Lào Cai",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Lào Cai",
+            "fullNameEn": ""
+        },
+        {
+            "code": "19",
+            "name": "Tỉnh Thái Nguyên",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Thái Nguyên",
+            "fullNameEn": ""
+        },
+        {
+            "code": "20",
+            "name": "Tỉnh Lạng Sơn",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Lạng Sơn",
+            "fullNameEn": ""
+        },
+        {
+            "code": "22",
+            "name": "Tỉnh Quảng Ninh",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Quảng Ninh",
+            "fullNameEn": ""
+        },
+        {
+            "code": "24",
+            "name": "Tỉnh Bắc Ninh",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Bắc Ninh",
+            "fullNameEn": ""
+        },
+        {
+            "code": "25",
+            "name": "Tỉnh Phú Thọ",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Phú Thọ",
+            "fullNameEn": ""
+        },
+        {
+            "code": "31",
+            "name": "Thành phố Hải Phòng",
+            "nameEn": "",
+            "administrativeLevel": "Thành phố Trung ương",
+            "fullName": "Thành phố Hải Phòng",
+            "fullNameEn": ""
+        },
+        {
+            "code": "33",
+            "name": "Tỉnh Hưng Yên",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Hưng Yên",
+            "fullNameEn": ""
+        },
+        {
+            "code": "37",
+            "name": "Tỉnh Ninh Bình",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Ninh Bình",
+            "fullNameEn": ""
+        },
+        {
+            "code": "38",
+            "name": "Tỉnh Thanh Hóa",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Thanh Hóa",
+            "fullNameEn": ""
+        },
+        {
+            "code": "40",
+            "name": "Tỉnh Nghệ An",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Nghệ An",
+            "fullNameEn": ""
+        },
+        {
+            "code": "42",
+            "name": "Tỉnh Hà Tĩnh",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Hà Tĩnh",
+            "fullNameEn": ""
+        },
+        {
+            "code": "44",
+            "name": "Tỉnh Quảng Trị",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Quảng Trị",
+            "fullNameEn": ""
+        },
+        {
+            "code": "46",
+            "name": "Thành phố Huế",
+            "nameEn": "",
+            "administrativeLevel": "Thành phố Trung ương",
+            "fullName": "Thành phố Huế",
+            "fullNameEn": ""
+        },
+        {
+            "code": "48",
+            "name": "Thành phố Đà Nẵng",
+            "nameEn": "",
+            "administrativeLevel": "Thành phố Trung ương",
+            "fullName": "Thành phố Đà Nẵng",
+            "fullNameEn": ""
+        },
+        {
+            "code": "51",
+            "name": "Tỉnh Quảng Ngãi",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Quảng Ngãi",
+            "fullNameEn": ""
+        },
+        {
+            "code": "52",
+            "name": "Tỉnh Gia Lai",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Gia Lai",
+            "fullNameEn": ""
+        },
+        {
+            "code": "56",
+            "name": "Tỉnh Khánh Hòa",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Khánh Hòa",
+            "fullNameEn": ""
+        },
+        {
+            "code": "66",
+            "name": "Tỉnh Đắk Lắk",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Đắk Lắk",
+            "fullNameEn": ""
+        },
+        {
+            "code": "68",
+            "name": "Tỉnh Lâm Đồng",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Lâm Đồng",
+            "fullNameEn": ""
+        },
+        {
+            "code": "75",
+            "name": "Tỉnh Đồng Nai",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Đồng Nai",
+            "fullNameEn": ""
+        },
+        {
+            "code": "79",
+            "name": "Thành phố Hồ Chí Minh",
+            "nameEn": "",
+            "administrativeLevel": "Thành phố Trung ương",
+            "fullName": "Thành phố Hồ Chí Minh",
+            "fullNameEn": ""
+        },
+        {
+            "code": "80",
+            "name": "Tỉnh Tây Ninh",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Tây Ninh",
+            "fullNameEn": ""
+        },
+        {
+            "code": "82",
+            "name": "Tỉnh Đồng Tháp",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Đồng Tháp",
+            "fullNameEn": ""
+        },
+        {
+            "code": "86",
+            "name": "Tỉnh Vĩnh Long",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Vĩnh Long",
+            "fullNameEn": ""
+        },
+        {
+            "code": "91",
+            "name": "Tỉnh An Giang",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh An Giang",
+            "fullNameEn": ""
+        },
+        {
+            "code": "92",
+            "name": "Thành phố Cần Thơ",
+            "nameEn": "",
+            "administrativeLevel": "Thành phố Trung ương",
+            "fullName": "Thành phố Cần Thơ",
+            "fullNameEn": ""
+        },
+        {
+            "code": "96",
+            "name": "Tỉnh Cà Mau",
+            "nameEn": "",
+            "administrativeLevel": "Tỉnh",
+            "fullName": "Tỉnh Cà Mau",
+            "fullNameEn": ""
+        }
+    ]
+}

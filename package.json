@@ -6,11 +6,14 @@
     "type": "module",
     "scripts": {
         "start": "nodemon src/app.js",
-        "serve": "nodemon src/app.js"
+        "serve": "nodemon src/app.js",
+        "crawl:addresses": "node src/scripts/crawlAddressData.js",
+        "crawl:addresses:watch": "nodemon src/scripts/crawlAddressData.js"
     },
     "author": "",
     "license": "ISC",
     "dependencies": {
+        "axios": "^1.12.2",
         "bcryptjs": "^2.4.3",
         "body-parser": "^1.20.3",
         "connect-mongo": "^5.1.0",

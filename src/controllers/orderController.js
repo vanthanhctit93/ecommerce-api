@@ -1,5 +1,7 @@
 import Order from '../models/Order.js';
 import ProductModel from '../models/Product.js';
+import { calculateAdvancedShipping } from '../utils/shipping.js';
+import { validateAndParseAddress } from '../services/addressService.js';
 
 /**
  * Get all orders of current user
@@ -220,3 +222,74 @@ export const getOrderStats = async (req, res) => {
         });
     }
 };
+
+/**
+ * Calculate shipping cost for order
+ */
+export async function calculateShippingCost(req, res) {
+    try {
+        const {
+            actualWeight,
+            dimensions,
+            fromProvinceCode,
+            toProvinceCode,
+            fromCommuneCode,
+            toCommuneCode,
+            shippingMethod,
+            codAmount,
+            insuranceValue,
+            subtotal
+        } = req.body;
+
+        const shippingCost = calculateAdvancedShipping({
+            actualWeight,
+            dimensions,
+            fromProvinceCode,
+            toProvinceCode,
+            fromCommuneCode,
+            toCommuneCode,
+            shippingMethod,
+            codAmount,
+            insuranceValue,
+            subtotal
+        });
+
+        res.json({
+            success: true,
+            data: shippingCost
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi tính phí vận chuyển',
+            error: error.message
+        });
+    }
+}
+
+/**
+ * Validate shipping address
+ */
+export async function validateAddress(req, res) {
+    try {
+        const addressValidation = await validateAndParseAddress(req.body);
+
+        if (!addressValidation.valid) {
+            return res.status(400).json({
+                success: false,
+                errors: addressValidation.errors
+            });
+        }
+
+        res.json({
+            success: true,
+            data: addressValidation.parsedAddress
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xác thực địa chỉ',
+            error: error.message
+        });
+    }
+}

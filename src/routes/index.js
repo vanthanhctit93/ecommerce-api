@@ -37,6 +37,12 @@ import {
     getOrderStats 
 } from '../controllers/orderController.js';
 import { sendOrderConfirmationEmail } from '../services/emailService.js';
+import { 
+    getLocalProvinces, 
+    getLocalCommunesByProvince,
+    searchProvinces,
+    searchCommunes
+} from '../services/localAddressService.js';
 
 const router = express.Router();
 
@@ -114,6 +120,78 @@ router.get('/order/list', protect, getUserOrders);
 router.get('/order/stats', protect, getOrderStats);
 router.get('/order/:id', protect, getOrderById);
 router.put('/order/cancel/:id', protect, cancelOrder);
+
+// ========================================
+// SHIPPING ROUTES
+// ========================================
+router.post('/shipping/calculate', calculateShippingCost);
+router.post('/shipping/validate-address', validateAddress);
+
+// Sử dụng local data thay vì API
+router.get('/shipping/provinces', async (req, res) => {
+    try {
+        const provinces = await getLocalProvinces();
+        res.json({ success: true, data: provinces });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
+router.get('/shipping/communes/:provinceId', async (req, res) => {
+    try {
+        const communes = await getLocalCommunesByProvince(req.params.provinceId);
+        res.json({ success: true, data: communes });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
+// Thêm route search
+router.get('/shipping/provinces/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Query parameter "q" is required' 
+            });
+        }
+        
+        const results = await searchProvinces(q);
+        res.json({ success: true, data: results });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
+router.get('/shipping/communes/search', async (req, res) => {
+    try {
+        const { q, provinceCode } = req.query;
+        if (!q) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Query parameter "q" is required' 
+            });
+        }
+        
+        const results = await searchCommunes(q, provinceCode);
+        res.json({ success: true, data: results });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
 
 // ========================================
 // TEST ROUTES (Development Only)
