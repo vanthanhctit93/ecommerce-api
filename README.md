@@ -80,3 +80,111 @@ npm run serve
 * Create a URL shortener application that generates short URLs for long URLs
 * Implement redirection from short URLs to the original URLs
 * Store URL mappings in a database for retrieval and redirection
+
+# E-commerce API
+
+## Setup Instructions
+
+### 1. Clone repository
+```bash
+git clone https://github.com/your-username/ecommerce-api.git
+cd ecommerce-api
+```
+
+### 2. Install dependencies
+```bash
+npm install
+```
+
+### 3. Setup environment variables
+Copy `.env.example` to `.env` and update with your values:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` file:
+```env
+PORT=8000
+MONGODB_URL="mongodb://127.0.0.1:27017/nodejs"
+SESSION_SECRET="your-session-secret"
+JWT_SECRET="your-jwt-secret"
+JWT_REFRESH_SECRET="your-refresh-secret"
+STRIPE_SECRET_KEY="sk_test_your_stripe_key"
+STRIPE_WEBHOOK_SECRET="whsec_your_webhook_secret"
+```
+
+### 4. Start MongoDB
+Make sure MongoDB is running on `localhost:27017`
+
+### 5. Run development server
+```bash
+npm run serve
+```
+
+Server will start on `http://localhost:8000`
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `PORT` | Server port | Yes |
+| `MONGODB_URL` | MongoDB connection string | Yes |
+| `SESSION_SECRET` | Session secret key | Yes |
+| `JWT_SECRET` | JWT secret key | Yes |
+| `JWT_REFRESH_SECRET` | Refresh token secret | Yes |
+| `STRIPE_SECRET_KEY` | Stripe API key | Yes |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook secret | Yes |
+
+## API Endpoints
+
+### Authentication
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login
+- `POST /auth/refresh-token` - Refresh access token
+- `POST /auth/logout` - Logout
+
+### User Profile
+- `GET /user/profile` - Get user profile (Private)
+- `PUT /user/profile` - Update profile (Private)
+- `PUT /user/change-password` - Change password (Private)
+- `DELETE /user/account` - Delete account (Private)
+
+### Articles
+- `GET /article/list` - Get all articles
+- `GET /article/:id` - Get article by ID
+- `POST /article/create` - Create article (Private)
+- `PUT /article/update/:id` - Update article (Private)
+- `DELETE /article/delete/:id` - Delete article (Private)
+
+### Products
+- `GET /product/list` - Get all products
+- `GET /product/:id` - Get product by ID
+- `POST /product/create` - Create product (Private)
+- `PUT /product/update/:id` - Update product (Private)
+- `DELETE /product/delete/:id` - Delete product (Private)
+
+### Cart
+- `GET /cart` - Get cart (Private)
+- `POST /cart/create` - Add to cart (Private)
+- `PUT /cart/update` - Update cart (Private)
+- `DELETE /cart/remove` - Remove from cart (Private)
+
+### Payment
+- `POST /checkout` - Checkout (Private)
+- `POST /payment/webhook` - Stripe webhook
+
+## Technologies Used
+
+- Node.js
+- Express.js
+- MongoDB + Mongoose
+- JWT Authentication
+- Stripe Payment
+- Socket.IO
+- bcryptjs
+- Helmet, CORS, Rate Limiting
+
+## License
+
+ISC
