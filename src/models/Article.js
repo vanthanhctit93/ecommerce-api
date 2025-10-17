@@ -16,7 +16,6 @@ const articleSchema = new mongoose.Schema({
         type: String,
         unique: true,
         lowercase: true,
-        index: true,
         validate: {
             validator: async function(slug) {
                 if (!this.isModified('slug')) return true;
@@ -25,7 +24,7 @@ const articleSchema = new mongoose.Schema({
             },
             message: 'Slug đã tồn tại'
         }
-    }
+    },
 
     excerpt: {
         type: String,
@@ -78,15 +77,13 @@ const articleSchema = new mongoose.Schema({
     author: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
 
     status: {  
         type: String,
         enum: ['draft', 'published', 'archived'],
-        default: 'draft',
-        index: true
+        default: 'draft'
     },
 
     publishedAt: {  
@@ -127,6 +124,7 @@ const articleSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+
     averageReadTime: {
         type: Number, // seconds
         default: 0
@@ -164,8 +162,7 @@ const articleSchema = new mongoose.Schema({
     // ========================================
     isDeleted: {  
         type: Boolean,
-        default: false,
-        index: true
+        default: false
     },
 
     deletedAt: {
@@ -183,8 +180,7 @@ const articleSchema = new mongoose.Schema({
     // ========================================
     isFeatured: {  
         type: Boolean,
-        default: false,
-        index: true
+        default: false
     },
 
     featuredOrder: { 
@@ -201,14 +197,17 @@ const articleSchema = new mongoose.Schema({
 // ========================================
 // INDEXES
 // ========================================
-articleSchema.index({ author: 1, status: 1 });
-articleSchema.index({ createdAt: -1 });
-articleSchema.index({ publishedAt: -1 });
-articleSchema.index({ slug: 1 });
-articleSchema.index({ isDeleted: 1, status: 1 });
-articleSchema.index({ categories: 1 });
-articleSchema.index({ tags: 1 });
-articleSchema.index({ viewCount: -1 });
+// Note: slug already has unique index from schema definition
+articleSchema.index({ author: 1, status: 1 });  
+articleSchema.index({ author: 1, isDeleted: 1 });  
+articleSchema.index({ status: 1, publishedAt: -1 });  
+articleSchema.index({ isDeleted: 1, status: 1 });  
+articleSchema.index({ isFeatured: 1, publishedAt: -1 });  
+articleSchema.index({ categories: 1, status: 1 });  
+articleSchema.index({ tags: 1 });  
+articleSchema.index({ viewCount: -1 });  
+articleSchema.index({ createdAt: -1 });  
+articleSchema.index({ publishedAt: -1 });  
 
 // ========================================
 // VIRTUAL FIELDS

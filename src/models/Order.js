@@ -128,12 +128,16 @@ const orderSchema = mongoose.Schema({
     timestamps: true
 });
 
-// Index cho search và filter
-orderSchema.index({ user: 1, status: 1 });
-orderSchema.index({ orderNumber: 1 });
-orderSchema.index({ 'payment.status': 1 });
-orderSchema.index({ 'shipping.status': 1 });
-orderSchema.index({ createdAt: -1 });
+// ========================================
+// INDEXES
+// ========================================
+// Note: orderNumber already has unique index from schema definition
+orderSchema.index({ user: 1, status: 1 });  
+orderSchema.index({ user: 1, createdAt: -1 });  
+orderSchema.index({ 'payment.status': 1, createdAt: -1 });  
+orderSchema.index({ 'payment.stripePaymentIntentId': 1 }, { sparse: true });  
+orderSchema.index({ 'shipping.status': 1 });  
+orderSchema.index({ createdAt: -1 });  
 
 // Generate order number
 orderSchema.pre('save', async function(next) {

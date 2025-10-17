@@ -73,10 +73,56 @@ export const getAllArticles = async (req, res) => {
         const articles = await Article.find(filters)
             .populate('author', 'username fullname avatar')
             .populate('categories', 'name slug')
-            .select('-content') // Don't send full content in list
+            .populate({
+                path: 'comments.user',
+                select: 'username avatar'
+            })
             .sort(sort)
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .lean(); // ✅ Convert to plain objects (faster)
+
+        // ✅ Fetch all related articles in ONE query
+        const articleIds = articles.map(a => a._id);
+        const categoryIds = [...new Set(articles.flatMap(a => a.categories.map(c => c._id)))];
+
+        const relatedMap = await Article.aggregate([
+            {
+                $match: {
+                    _id: { $nin: articleIds },
+                    categories: { $in: categoryIds },
+                    status: 'published',
+                    isDeleted: false
+                }
+            },
+            {
+                $unwind: '$categories'
+            },
+            {
+                $group: {
+                    _id: '$categories',
+                    articles: {
+                        $push: {
+                            _id: '$_id',
+                            title: '$title',
+                            slug: '$slug',
+                            thumbnail: '$thumbnail'
+                        }
+                    }
+                }
+            }
+        ]);
+
+        // Map related articles
+        articles.forEach(article => {
+            const categoryMatches = relatedMap
+                .filter(r => article.categories.some(c => c._id.equals(r._id)))
+                .flatMap(r => r.articles)
+                .filter(a => !a._id.equals(article._id))
+                .slice(0, 3);
+            
+            article.relatedArticles = categoryMatches;
+        });
 
         const total = await Article.countDocuments(filters);
 

@@ -363,6 +363,36 @@ export const removeFromCart = async (req, res) => {
 };
 
 /**
+ * Clear entire cart
+ * @route DELETE /cart/clear
+ * @access Private
+ */
+export const clearCart = async (req, res) => {
+    try {
+        const cartKey = req.user ? `cart_${req.user._id}` : 'cart_guest';
+        
+        // Clear the cart
+        req.session[cartKey] = [];
+
+        res.status(200).json({
+            status_code: 1,
+            data: {
+                message: 'Giỏ hàng đã được xóa'
+            }
+        });
+    } catch (err) {
+        console.error('Clear cart error:', err);
+        res.status(500).json({
+            status_code: 0,
+            data: {
+                error_code: 0,
+                message: 'Lỗi xóa giỏ hàng'
+            }
+        });
+    }
+};
+
+/**
  * Get cart summary with shipping & tax
  * @route GET /cart/summary
  * @access Private
@@ -550,75 +580,6 @@ export const calculateCartTotal = async (req, res) => {
         });
     }
 };
-
-/**
- * Clean expired cart items (older than 7 days)
- */
-function cleanExpiredCartItems(cart) {
-    const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    
-    return cart.filter(item => {
-        if (!item.addedAt) return true; // Keep items without timestamp
-        return (now - item.addedAt) < SEVEN_DAYS;
-    });
-}
-
-/**
- * Validate và sync giá sản phẩm trong giỏ hàng
- * @param {Array} cart - Giỏ hàng hiện tại
- * @returns {Object} - { updatedCart, priceChanges }
- */
-async function validateCartPrices(cart) {
-    const updatedCart = [];
-    const priceChanges = [];
-
-    for (const item of cart) {
-        const product = await ProductModel.findById(item.productId);
-        
-        if (!product || product.isDeleted || !product.isPublished) {
-            // Sản phẩm không còn tồn tại hoặc bị unpublish
-            priceChanges.push({
-                productId: item.productId,
-                title: item.title,
-                status: 'unavailable'
-            });
-            continue; // Bỏ qua sản phẩm này
-        }
-
-        const currentPrice = product.salePrice || product.regularPrice;
-        
-        if (item.price !== currentPrice) {
-            // Giá đã thay đổi
-            priceChanges.push({
-                productId: item.productId,
-                title: item.title,
-                oldPrice: item.price,
-                newPrice: currentPrice,
-                difference: currentPrice - item.price
-            });
-            
-            item.price = currentPrice; // Update giá mới
-        }
-
-        // Kiểm tra tồn kho
-        if (item.quantity > product.inStock) {
-            priceChanges.push({
-                productId: item.productId,
-                title: item.title,
-                status: 'stock_updated',
-                oldQuantity: item.quantity,
-                newQuantity: product.inStock
-            });
-            
-            item.quantity = Math.min(item.quantity, product.inStock);
-        }
-
-        updatedCart.push(item);
-    }
-
-    return { updatedCart, priceChanges };
-}
 
 /**
  * Merge guest cart với user cart khi login

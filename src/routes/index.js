@@ -63,6 +63,9 @@ import {
     searchCommunes
 } from '../services/localAddressService.js';
 
+import { validate } from '../middlewares/validate.js';
+import { createProductSchema } from '../validators/productValidator.js';
+
 const router = express.Router();
 
 // ========================================
@@ -121,7 +124,7 @@ router.get('/product/list', getAllProducts);
 router.get('/product/:id', getProductById);
 
 // Private routes - Single operations
-router.post('/product/create', protect, createProduct);
+router.post('/product/create', protect, validate(createProductSchema), createProduct);
 router.put('/product/update/:id', protect, updateProduct);
 router.delete('/product/delete/:id', protect, deleteProduct);
 router.put('/product/restore/:id', protect, restoreProduct);
@@ -166,8 +169,8 @@ router.put('/order/cancel/:id', protect, cancelOrder);
 // ========================================
 // SHIPPING ROUTES
 // ========================================
-router.post('/shipping/calculate', calculateShippingCost);
-router.post('/shipping/validate-address', validateAddress);
+// router.post('/shipping/calculate', calculateShippingCost);
+// router.post('/shipping/validate-address', validateAddress);
 
 // Sử dụng local data thay vì API
 router.get('/shipping/provinces', async (req, res) => {

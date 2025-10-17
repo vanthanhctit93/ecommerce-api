@@ -157,8 +157,7 @@ const productSchema = mongoose.Schema({
     owner: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true,
-        index: true
+        required: true
     },
 
     // Timestamps
@@ -187,18 +186,24 @@ const productSchema = mongoose.Schema({
         ref: 'User'
     }
 }, {
-    timestamps: true, // Tự động tạo createdAt, updatedAt
+    timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true }
 });
 
-// Indexes để tối ưu query
-productSchema.index({ sku: 1 });
-productSchema.index({ owner: 1 });
-productSchema.index({ title: 'text', description: 'text' }); // Full-text search
+// ========================================
+// INDEXES
+// ========================================
+// Note: sku already has unique index from schema definition
+// Note: slug already has unique index from schema definition
+productSchema.index({ owner: 1, isDeleted: 1 });  
+productSchema.index({ title: 'text', description: 'text' }); 
 productSchema.index({ categories: 1 });
 productSchema.index({ isPublished: 1, isFeatured: 1 });
 productSchema.index({ createdAt: -1 });
+productSchema.index({ regularPrice: 1 }); 
+productSchema.index({ salePrice: 1 });
+productSchema.index({ soldCount: -1 });  
 
 // Virtual để check low stock
 productSchema.virtual('isLowStock').get(function() {
