@@ -1,9 +1,5 @@
 /**
  * Send success response
- * @param {Object} res - Express response object
- * @param {Object} data - Data to send
- * @param {string} message - Success message
- * @param {number} statusCode - HTTP status code (default: 200)
  */
 export const sendSuccess = (res, data, message = null, statusCode = 200) => {
     return res.status(statusCode).json({
@@ -17,17 +13,14 @@ export const sendSuccess = (res, data, message = null, statusCode = 200) => {
 
 /**
  * Send error response
- * @param {Object} res - Express response object
- * @param {number} errorCode - Application error code
- * @param {string} message - Error message
- * @param {number} statusCode - HTTP status code (default: 400)
  */
-export const sendError = (res, errorCode, message, statusCode = 400) => {
+export const sendError = (res, errorCode, message, statusCode = 400, extraData = {}) => {
     return res.status(statusCode).json({
         status_code: 0,
         data: {
             error_code: errorCode,
-            message
+            message,
+            ...extraData
         }
     });
 };
@@ -49,8 +42,15 @@ export const sendUnauthorized = (res, message = 'Unauthorized') => {
 /**
  * Send validation error
  */
-export const sendValidationError = (res, message) => {
-    return sendError(res, 1, message, 400);
+export const sendValidationError = (res, message, errors = null) => {
+    return res.status(400).json({
+        status_code: 0,
+        data: {
+            error_code: 1,
+            message,
+            ...(errors && { errors })
+        }
+    });
 };
 
 /**

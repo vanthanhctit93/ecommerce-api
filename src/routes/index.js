@@ -63,8 +63,11 @@ import {
     searchCommunes
 } from '../services/localAddressService.js';
 
+import upload from '../config/upload.js';
 import { validate } from '../middlewares/validate.js';
 import { createProductSchema } from '../validators/productValidator.js';
+import { processImages } from '../middlewares/imageProcessor.js';
+import { cacheMiddleware, userCacheMiddleware } from '../middlewares/cache.js';
 
 const router = express.Router();
 
@@ -281,5 +284,62 @@ if (process.env.NODE_ENV === 'development') {
         }
     });
 }
+
+// ========================================
+// PRODUCT ROUTES WITH CACHE
+// ========================================
+// Public routes - Cache 5 minutes
+router.get('/product/list', cacheMiddleware(300), getAllProducts);
+router.get('/product/:id', cacheMiddleware(300), getProductById);
+
+// Private routes - No cache (dynamic data)
+router.post('/product/create', protect, createProduct);
+router.put('/product/update/:id', protect, updateProduct);
+router.delete('/product/delete/:id', protect, deleteProduct);
+
+// ========================================
+// SHIPPING ROUTES WITH CACHE
+// ========================================
+// Cache provinces for 1 day (data rarely changes)
+router.get('/shipping/provinces', cacheMiddleware(86400), async (req, res) => {
+    try {
+        const provinces = await getLocalProvinces();
+        res.json({ success: true, data: provinces });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
+// Cache communes for 1 day
+router.get('/shipping/communes/:provinceId', cacheMiddleware(86400), async (req, res) => {
+    try {
+        const communes = await getLocalCommunesByProvince(req.params.provinceId);
+        res.json({ success: true, data: communes });
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
+    }
+});
+
+// ========================================
+// ARTICLE ROUTES WITH CACHE
+// ========================================
+router.get('/article/list', cacheMiddleware(180), getAllArticles); // 3 minutes
+router.get('/article/:id', cacheMiddleware(180), getArticleById);
+router.post('/article/create', protect, createArticle);
+router.put('/article/update/:id', protect, updateArticle);
+router.delete('/article/delete/:id', protect, deleteArticle);
+
+// ========================================
+// ORDER ROUTES - USER-SPECIFIC CACHE
+// ========================================
+router.get('/order/list', protect, userCacheMiddleware(60), getUserOrders); // 1 minute
+router.get('/order/stats', protect, userCacheMiddleware(300), getOrderStats); // 5 minutes
+router.get('/order/:id', protect, getOrderById); // No cache (always fresh)
 
 export default router;

@@ -2,6 +2,14 @@ import Order from '../models/Order.js';
 import ProductModel from '../models/Product.js';
 import { calculateAdvancedShipping } from '../utils/shipping.js';
 import { validateAndParseAddress } from '../services/addressService.js';
+// ✅ ADD IMPORT
+import { 
+    sendSuccess, 
+    sendError, 
+    sendNotFound, 
+    sendValidationError,
+    sendServerError 
+} from '../utils/responseHelper.js';
 
 /**
  * Get all orders of current user
@@ -29,27 +37,18 @@ export const getUserOrders = async (req, res) => {
 
         const total = await Order.countDocuments(filters);
 
-        res.status(200).json({
-            status_code: 1,
-            data: {
-                orders,
-                pagination: {
-                    page,
-                    limit,
-                    total,
-                    pages: Math.ceil(total / limit)
-                }
+        return sendSuccess(res, {
+            orders,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
             }
         });
     } catch (error) {
         console.error('Get orders error:', error);
-        res.status(500).json({
-            status_code: 0,
-            data: {
-                error_code: 0,
-                message: 'Lỗi lấy danh sách đơn hàng'
-            }
-        });
+        return sendServerError(res, 'Lỗi lấy danh sách đơn hàng');
     }
 };
 
@@ -68,30 +67,13 @@ export const getOrderById = async (req, res) => {
         }).populate('items.product', 'title sku thumbnail regularPrice salePrice');
 
         if (!order) {
-            return res.status(404).json({
-                status_code: 0,
-                data: {
-                    error_code: 1,
-                    message: 'Đơn hàng không tồn tại'
-                }
-            });
+            return sendNotFound(res, 'Đơn hàng không tồn tại');
         }
 
-        res.status(200).json({
-            status_code: 1,
-            data: {
-                order
-            }
-        });
+        return sendSuccess(res, { order });
     } catch (error) {
         console.error('Get order error:', error);
-        res.status(500).json({
-            status_code: 0,
-            data: {
-                error_code: 0,
-                message: 'Lỗi lấy thông tin đơn hàng'
-            }
-        });
+        return sendServerError(res, 'Lỗi lấy thông tin đơn hàng');
     }
 };
 
@@ -111,27 +93,13 @@ export const cancelOrder = async (req, res) => {
         }).populate('items.product');
 
         if (!order) {
-            return res.status(404).json({
-                status_code: 0,
-                data: {
-                    error_code: 1,
-                    message: 'Đơn hàng không tồn tại'
-                }
-            });
+            return sendNotFound(res, 'Đơn hàng không tồn tại');
         }
 
-        // Check if order can be cancelled
         if (['shipped', 'delivered', 'cancelled', 'refunded'].includes(order.status)) {
-            return res.status(400).json({
-                status_code: 0,
-                data: {
-                    error_code: 2,
-                    message: 'Không thể hủy đơn hàng ở trạng thái này'
-                }
-            });
+            return sendError(res, 2, 'Không thể hủy đơn hàng ở trạng thái này');
         }
 
-        // Update order status
         order.status = 'cancelled';
         order.cancelledAt = new Date();
         order.cancelledBy = req.user._id;
@@ -153,29 +121,12 @@ export const cancelOrder = async (req, res) => {
                     }
                 );
             }
-
-            // TODO: Initiate refund via Stripe
-            // await stripe.refunds.create({
-            //     payment_intent: order.payment.stripePaymentIntentId
-            // });
         }
 
-        res.status(200).json({
-            status_code: 1,
-            data: {
-                order,
-                message: 'Hủy đơn hàng thành công'
-            }
-        });
+        return sendSuccess(res, { order }, 'Hủy đơn hàng thành công');
     } catch (error) {
         console.error('Cancel order error:', error);
-        res.status(500).json({
-            status_code: 0,
-            data: {
-                error_code: 0,
-                message: 'Lỗi hủy đơn hàng'
-            }
-        });
+        return sendServerError(res, 'Lỗi hủy đơn hàng');
     }
 };
 
@@ -203,23 +154,14 @@ export const getOrderStats = async (req, res) => {
             { $group: { _id: null, total: { $sum: '$pricing.total' } } }
         ]);
 
-        res.status(200).json({
-            status_code: 1,
-            data: {
-                totalOrders,
-                totalSpent: totalSpent[0]?.total || 0,
-                byStatus: stats
-            }
+        return sendSuccess(res, {
+            totalOrders,
+            totalSpent: totalSpent[0]?.total || 0,
+            byStatus: stats
         });
     } catch (error) {
         console.error('Get order stats error:', error);
-        res.status(500).json({
-            status_code: 0,
-            data: {
-                error_code: 0,
-                message: 'Lỗi lấy thống kê đơn hàng'
-            }
-        });
+        return sendServerError(res, 'Lỗi lấy thống kê đơn hàng');
     }
 };
 
@@ -254,16 +196,9 @@ export async function calculateShippingCost(req, res) {
             subtotal
         });
 
-        res.json({
-            success: true,
-            data: shippingCost
-        });
+        return sendSuccess(res, { shippingCost });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi tính phí vận chuyển',
-            error: error.message
-        });
+        return sendServerError(res, 'Lỗi khi tính phí vận chuyển');
     }
 }
 
@@ -275,21 +210,11 @@ export async function validateAddress(req, res) {
         const addressValidation = await validateAndParseAddress(req.body);
 
         if (!addressValidation.valid) {
-            return res.status(400).json({
-                success: false,
-                errors: addressValidation.errors
-            });
+            return sendValidationError(res, 'Địa chỉ không hợp lệ', addressValidation.errors);
         }
 
-        res.json({
-            success: true,
-            data: addressValidation.parsedAddress
-        });
+        return sendSuccess(res, { address: addressValidation.parsedAddress });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi xác thực địa chỉ',
-            error: error.message
-        });
+        return sendServerError(res, 'Lỗi khi xác thực địa chỉ');
     }
 }

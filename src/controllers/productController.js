@@ -3,10 +3,23 @@ import { isValidSKU } from '../utils/validators.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+// ✅ ADD IMPORT
+import { 
+    sendSuccess, 
+    sendError, 
+    sendNotFound, 
+    sendValidationError,
+    sendUnauthorized,
+    sendServerError 
+} from '../utils/responseHelper.js';
+import { deleteCachePattern } from '../config/redis.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/**
+ * Create product
+ */
 export const createProduct = async (req, res, next) => {
     try {
         const { 
@@ -21,79 +34,30 @@ export const createProduct = async (req, res, next) => {
             isFeatured = false
         } = req.body;
 
-        // Validation
         if (!sku || !title || !regularPrice) {
-            return res.status(400).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 1,
-                    message: 'Vui lòng nhập đầy đủ thông tin (sku, title, regularPrice)' 
-                }
-            });
+            return sendValidationError(res, 'Vui lòng nhập đầy đủ thông tin (sku, title, regularPrice)');
         }
 
         if (regularPrice < 0) {
-            return res.status(400).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 3,
-                    message: 'Giá sản phẩm không thể âm' 
-                }
-            });
+            return sendError(res, 6, 'Giá sản phẩm không thể âm');
         }
 
         if (salePrice && salePrice < 0) {
-            return res.status(400).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 4,
-                    message: 'Giá sale không thể âm' 
-                }
-            });
+            return sendError(res, 5, 'Giá sale không thể âm');
         }
 
-        if (salePrice && salePrice > regularPrice) {
-            return res.status(400).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 5,
-                    message: 'Giá sale không thể lớn hơn giá gốc' 
-                }
-            });
-        }
-
-        // Validation tồn kho
         if (inStock < 0) {
-            return res.status(400).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 6,
-                    message: 'Số lượng tồn kho không thể âm' 
-                }
-            });
+            return sendError(res, 6, 'Số lượng tồn kho không thể âm');
         }
 
-        // Validate SKU format
         if (!isValidSKU(sku)) {
-            return res.status(400).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 7,
-                    message: 'SKU không hợp lệ (3-50 ký tự, chỉ chữ hoa, số và dấu gạch ngang)' 
-                }
-            });
+            return sendError(res, 7, 'SKU không hợp lệ (3-50 ký tự, chỉ chữ hoa, số và dấu gạch ngang)');
         }
 
         const existingProduct = await ProductModel.findOne({ sku });
 
         if (existingProduct) {
-            return res.status(400).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 2,
-                    message: 'SKU đã tồn tại' 
-                }
-            });
+            return sendError(res, 2, 'SKU đã tồn tại');
         }
 
         const product = new ProductModel({
@@ -110,20 +74,18 @@ export const createProduct = async (req, res, next) => {
         });
 
         await product.save();
+        await deleteCachePattern('cache:/product/list*');
 
-        return res.status(201).json({ 
-            status_code: 1,
-            data: {
-                product,
-                message: 'Tạo sản phẩm thành công'
-            }
-        });
+        return sendSuccess(res, { product }, 'Tạo sản phẩm thành công', 201);
     } catch (err) {
         console.error('Create product error:', err);
         next(err);
     }
 };
 
+/**
+ * Get all products
+ */
 export const getAllProducts = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -215,6 +177,9 @@ export const getAllProducts = async (req, res) => {
     }
 }
 
+/**
+ * Get product by ID
+ */
 export const getProductById = async (req, res) => {
     try {
         const { id } = req.params;
@@ -247,8 +212,11 @@ export const getProductById = async (req, res) => {
             }
         });
     }
-}
+};
 
+/**
+ * Update product
+ */
 export const updateProduct = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -257,80 +225,36 @@ export const updateProduct = async (req, res, next) => {
         const product = await ProductModel.findById(id);
 
         if (!product) {
-            return res.status(404).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 1,
-                    message: 'Sản phẩm không tồn tại' 
-                }
-            });
+            return sendNotFound(res, 'Sản phẩm không tồn tại');
         }
 
         if (product.owner.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 2,
-                    message: 'Bạn không có quyền sửa sản phẩm này' 
-                }
-            });
+            return sendUnauthorized(res, 'Bạn không có quyền sửa sản phẩm này');
         }
 
-        // Kiểm tra tồn kho nếu có cập nhật
         if (inStock !== undefined) {
             if (inStock < 0) {
-                return res.status(400).json({ 
-                    status_code: 0,
-                    data: {
-                        error_code: 3,
-                        message: 'Số lượng tồn kho không thể âm' 
-                    }
-                });
+                return sendError(res, 3, 'Số lượng tồn kho không thể âm');
             }
-
-            // TODO: Kiểm tra pending orders
-            // const pendingOrders = await Order.aggregate([
-            //     { $match: { 'items.productId': product._id, status: 'pending' } },
-            //     { $unwind: '$items' },
-            //     { $match: { 'items.productId': product._id } },
-            //     { $group: { _id: null, totalQuantity: { $sum: '$items.quantity' } } }
-            // ]);
-            
-            // if (pendingOrders[0] && inStock < pendingOrders[0].totalQuantity) {
-            //     return res.status(400).json({ 
-            //         status_code: 0,
-            //         data: {
-            //             error_code: 4,
-            //             message: `Không thể giảm tồn kho xuống ${inStock}. Có ${pendingOrders[0].totalQuantity} sản phẩm trong đơn hàng chưa xử lý.` 
-            //         }
-            //     });
-            // }
-
             product.inStock = inStock;
         }
 
-        // Cập nhật các fields khác
-        Object.keys(otherUpdates).forEach(key => {
-            if (otherUpdates[key] !== undefined) {
-                product[key] = otherUpdates[key];
-            }
-        });
-
+        Object.assign(product, otherUpdates);
         await product.save();
 
-        return res.status(200).json({ 
-            status_code: 1,
-            data: {
-                product,
-                message: 'Cập nhật sản phẩm thành công'
-            }
-        });
+        await deleteCachePattern('cache:/product/list*');
+        await deleteCachePattern(`cache:/product/${id}`);
+
+        return sendSuccess(res, { product }, 'Cập nhật sản phẩm thành công');
     } catch (err) {
         console.error('Update product error:', err);
         next(err);
     }
 };
 
+/**
+ * Delete product (soft delete)
+ */
 export const deleteProduct = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -338,43 +262,30 @@ export const deleteProduct = async (req, res, next) => {
         const product = await ProductModel.findById(id);
 
         if (!product || product.isDeleted) {
-            return res.status(404).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 1,
-                    message: 'Sản phẩm không tồn tại' 
-                }
-            });
+            return sendNotFound(res, 'Sản phẩm không tồn tại');
         }
 
         if (product.owner.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ 
-                status_code: 0,
-                data: {
-                    error_code: 2,
-                    message: 'Bạn không có quyền xóa sản phẩm này' 
-                }
-            });
+            return sendUnauthorized(res, 'Bạn không có quyền xóa sản phẩm này');
         }
 
-        // Soft delete
         product.isDeleted = true;
         product.deletedAt = Date.now();
         product.deletedBy = req.user._id;
         await product.save();
 
-        return res.status(200).json({ 
-            status_code: 1,
-            data: {
-                message: 'Xóa sản phẩm thành công'
-            }
-        });
+        await deleteCachePattern('cache:/product/list*');
+        await deleteCachePattern(`cache:/product/${id}`);
+
+        return sendSuccess(res, {}, 'Xóa sản phẩm thành công');
     } catch (err) {
         next(err);
     }
 };
 
-// Restore product
+/**
+ * Restore product
+ */
 export const restoreProduct = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -797,6 +708,7 @@ export const uploadProductImages = async (req, res, next) => {
             data: {
                 images,
                 product,
+                imageStats: req.imageStats || [], 
                 message: `Upload thành công ${images.length} ảnh`
             }
         });

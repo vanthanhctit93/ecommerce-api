@@ -1,24 +1,22 @@
 import Stripe from 'stripe';
-import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import ProductModel from '../models/Product.js';
-import { calculateShipping } from '../utils/shipping.js';
+import { calculateShipping, validateShippingAddress } from '../utils/shipping.js';
 import { calculateTax } from '../utils/tax.js';
-import { validateShippingAddress } from '../utils/shipping.js';
-import { reserveStock, releaseStock, updateSoldCount } from '../utils/stockManager.js';
 import {
     sendOrderConfirmationEmail,
     sendPaymentFailedEmail,
     sendRefundConfirmationEmail
 } from '../services/emailService.js';
+// ✅ ADD IMPORT
+import { 
+    sendSuccess, 
+    sendError, 
+    sendValidationError,
+    sendServerError 
+} from '../utils/responseHelper.js';
 
-const stripe = process.env.STRIPE_SECRET_KEY 
-    ? new Stripe(process.env.STRIPE_SECRET_KEY)
-    : null;
-
-if (!stripe) {
-    console.warn('⚠️  WARNING: Stripe not initialized (missing STRIPE_SECRET_KEY)');
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 /**
  * Validate cart prices với database
@@ -58,87 +56,42 @@ async function validateCartPrices(cart) {
 }
 
 export const checkout = async (req, res) => {
-    const session = await mongoose.startSession();
-    
     try {
-        session.startTransaction();
-
         const cartKey = req.user ? `cart_${req.user._id}` : 'cart';
         const cart = req.session[cartKey];
         
         if (!cart || cart.length === 0) {
-            return res.status(400).json({
-                status_code: 0,
-                data: {
-                    error_code: 1,
-                    message: 'Giỏ hàng trống'
-                }
-            });
+            return sendError(res, 1, 'Giỏ hàng trống');
         }
 
-        // ✅ Get shipping address from request
         const { shippingAddress, shippingMethod } = req.body;
 
-        if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.phone || !shippingAddress.address || !shippingAddress.city) {
-            return res.status(400).json({
-                status_code: 0,
-                data: {
-                    error_code: 2,
-                    message: 'Vui lòng nhập đầy đủ địa chỉ giao hàng'
-                }
-            });
+        if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.phone || 
+            !shippingAddress.address || !shippingAddress.city) {
+            return sendValidationError(res, 'Vui lòng nhập đầy đủ địa chỉ giao hàng');
         }
 
-        // ✅ Validate shipping address
         const addressValidation = validateShippingAddress(shippingAddress);
         
         if (!addressValidation.valid) {
-            return res.status(400).json({
-                status_code: 0,
-                data: {
-                    error_code: 5,
-                    message: 'Địa chỉ giao hàng không hợp lệ',
-                    errors: addressValidation.errors
-                }
+            return sendError(res, 5, 'Địa chỉ giao hàng không hợp lệ', 400, {
+                errors: addressValidation.errors
             });
         }
 
-        // ✅ Validate cart prices
         let validatedCart, hasChanges;
         try {
             ({ validatedCart, hasChanges } = await validateCartPrices(cart));
         } catch (error) {
-            return res.status(400).json({
-                status_code: 0,
-                data: {
-                    error_code: 3,
-                    message: error.message
-                }
-            });
+            return sendError(res, 3, error.message);
         }
 
-        // ✅ Notify if prices changed
         if (hasChanges) {
-            return res.status(400).json({
-                status_code: 0,
-                data: {
-                    error_code: 4,
-                    message: 'Giá một số sản phẩm đã thay đổi, vui lòng kiểm tra lại giỏ hàng',
-                    updatedCart: validatedCart
-                }
+            return sendError(res, 4, 'Giá một số sản phẩm đã thay đổi, vui lòng kiểm tra lại giỏ hàng', 400, {
+                updatedCart: validatedCart
             });
         }
 
-        // ✅ Reserve stock atomically (will throw if insufficient stock)
-        await reserveStock(
-            validatedCart.map(item => ({
-                productId: item.productId,
-                quantity: item.quantity
-            })),
-            session
-        );
-
-        // ✅ Calculate pricing
         const subtotal = validatedCart.reduce((sum, item) => sum + item.subtotal, 0);
         
         const totalWeight = validatedCart.reduce((sum, item) => {
@@ -160,7 +113,6 @@ export const checkout = async (req, res) => {
 
         const total = subtotal + shipping.cost + tax.amount;
 
-        // ✅ Create order in database with transaction
         const order = new Order({
             user: req.user._id,
             items: validatedCart,
@@ -179,15 +131,8 @@ export const checkout = async (req, res) => {
             }
         });
 
-        await order.save({ session });
+        await order.save();
 
-        // ✅ Clear cart
-        req.session[cartKey] = [];
-
-        // Commit transaction before creating Stripe Payment Intent
-        await session.commitTransaction();
-
-        // ✅ Create Stripe PaymentIntent (outside transaction)
         const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(total),
             currency: 'vnd',
@@ -199,41 +144,27 @@ export const checkout = async (req, res) => {
             }
         });
 
-        // ✅ Update order with paymentIntentId (separate operation, no transaction needed)
         order.payment.stripePaymentIntentId = paymentIntent.id;
         await order.save();
 
-        return res.status(200).json({
-            status_code: 1,
-            data: {
-                orderId: order._id,
-                orderNumber: order.orderNumber,
-                paymentIntentId: paymentIntent.id,
-                clientSecret: paymentIntent.client_secret,
-                amount: total,
-                breakdown: {
-                    subtotal,
-                    shipping: shipping.cost,
-                    tax: tax.amount,
-                    total
-                },
-                message: 'Tạo đơn hàng thành công'
+        req.session[cartKey] = [];
+
+        return sendSuccess(res, {
+            orderId: order._id,
+            orderNumber: order.orderNumber,
+            paymentIntentId: paymentIntent.id,
+            clientSecret: paymentIntent.client_secret,
+            amount: total,
+            breakdown: {
+                subtotal,
+                shipping: shipping.cost,
+                tax: tax.amount,
+                total
             }
-        });
+        }, 'Tạo đơn hàng thành công');
     } catch (error) {
-        // Rollback transaction on any error
-        await session.abortTransaction();
         console.error('Checkout error:', error);
-        return res.status(500).json({
-            status_code: 0,
-            data: {
-                error_code: 0,
-                message: 'Lỗi xử lý thanh toán',
-                error: error.message
-            }
-        });
-    } finally {
-        session.endSession();
+        return sendServerError(res, 'Lỗi xử lý thanh toán');
     }
 };
 

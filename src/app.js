@@ -10,8 +10,10 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
+import RedisStore from 'connect-redis';
 import bodyParser from 'body-parser';
 import { Server as SocketIO } from 'socket.io';
+import redis, { isRedisAvailable } from './config/redis.js';
 import router from './routes/index.js';
 import connectDB from './config/db.js';
 import errorHandler from './middlewares/errorMiddleware.js';
@@ -109,18 +111,32 @@ if (process.env.NODE_ENV === 'production') {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Session
+// Session - Use Redis if available, fallback to MongoDB
+const sessionStore = isRedisAvailable()
+    ? new RedisStore({ 
+        client: redis,
+        prefix: 'sess:',
+        ttl: 3600 // 1 hour
+    })
+    : MongoStore.create({
+        mongoUrl: process.env.MONGODB_URL,
+        collectionName: 'sessions',
+        ttl: 60 * 60 // 1 hour
+    });
+
+if (isRedisAvailable()) {
+    console.log('✅ Using Redis for session storage');
+} else {
+    console.log('⚠️  Using MongoDB for session storage (Redis not available)');
+}
+
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: process.env.MONGODB_URL,
-        collectionName: 'sessions',
-        ttl: 60 * 60 // 1 hour
-    }),
+    store: sessionStore,
     cookie: {
-        maxAge: 3600000, // 1 giờ
+        maxAge: 3600000, // 1 hour
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production' // HTTPS only in production
     }
