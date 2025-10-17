@@ -48,6 +48,7 @@ import {
 import { checkout, stripeWebhook } from '../controllers/paymentController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import upload from '../config/upload.js';
+import { authLimiter, paymentLimiter } from '../middlewares/rateLimiter.js';
 import { 
     getUserOrders, 
     getOrderById, 
@@ -67,8 +68,8 @@ const router = express.Router();
 // ========================================
 // AUTH ROUTES (Public - Không cần token)
 // ========================================
-router.post('/auth/register', register);
-router.post('/auth/login', login);
+router.post('/auth/register', authLimiter, register); 
+router.post('/auth/login', authLimiter, login);       
 router.post('/auth/refresh-token', refreshToken);
 router.post('/auth/logout', protect, logout); // Optional: có thể để public
 
@@ -151,7 +152,7 @@ router.delete('/cart/clear', protect, clearCart);
 // ========================================
 // PAYMENT ROUTES
 // ========================================
-router.post('/checkout', protect, checkout);
+router.post('/checkout', paymentLimiter, protect, checkout); 
 router.post('/payment/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 
 // ========================================

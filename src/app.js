@@ -16,6 +16,10 @@ import router from './routes/index.js';
 import connectDB from './config/db.js';
 import errorHandler from './middlewares/errorMiddleware.js';
 import { startArticleScheduler, stopArticleScheduler } from './jobs/articleScheduler.js';
+import xss from 'xss-clean';
+import mongoSanitize from 'express-mongo-sanitize';
+import compression from 'compression';
+import timeout from 'connect-timeout';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,16 +43,67 @@ app.use((req, res, next) => {
     next();
 });
 
-// Security middleware
-app.use(helmet());
-app.use(cors());
+// ========================================
+// SECURITY MIDDLEWARE
+// ========================================
 
-// Rate limiting
-app.use(rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 phút
-    max: 100, // Giới hạn 100 requests
-    message: 'Quá nhiều requests từ IP này, vui lòng thử lại sau.'
+// 1. Helmet - Set security headers
+app.use(helmet());
+
+// 2. CORS - Cross-Origin Resource Sharing
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true
 }));
+
+// 3. XSS Protection - Clean user input from malicious scripts
+app.use(xss());
+
+// 4. NoSQL Injection Protection - Sanitize data against query injection
+app.use(mongoSanitize({
+    replaceWith: '_', // Replace $ and . with _
+    onSanitize: ({ req, key }) => {
+        console.warn(`⚠️  Sanitized key: ${key} in request from ${req.ip}`);
+    }
+}));
+
+// 5. Rate Limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: 'Quá nhiều requests từ IP này, vui lòng thử lại sau.',
+    standardHeaders: true,
+    legacyHeaders: false
+});
+app.use(limiter);
+
+// 6. Request Timeout - Prevent hanging requests
+app.use(timeout('30s'));
+app.use((req, res, next) => {
+    if (!req.timedout) next();
+});
+
+// 7. Compression - Compress response bodies
+app.use(compression({
+    filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+            return false;
+        }
+        return compression.filter(req, res);
+    },
+    level: 6 // Compression level (0-9)
+}));
+
+// 8. Force HTTPS in production
+if (process.env.NODE_ENV === 'production') {
+    app.use((req, res, next) => {
+        if (req.header('x-forwarded-proto') !== 'https') {
+            res.redirect(`https://${req.header('host')}${req.url}`);
+        } else {
+            next();
+        }
+    });
+}
 
 // Body parser
 app.use(bodyParser.json());
