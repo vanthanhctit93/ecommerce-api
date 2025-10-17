@@ -2,7 +2,6 @@ import Order from '../models/Order.js';
 import ProductModel from '../models/Product.js';
 import { calculateAdvancedShipping } from '../utils/shipping.js';
 import { validateAndParseAddress } from '../services/addressService.js';
-// ✅ ADD IMPORT
 import { 
     sendSuccess, 
     sendError, 
@@ -11,20 +10,24 @@ import {
     sendServerError 
 } from '../utils/responseHelper.js';
 
+import { 
+    ORDER_STATUS, 
+    NON_CANCELLABLE_ORDER_STATUSES,
+    PAGINATION,
+    ERROR_MESSAGES
+} from '../constants/index.js';
+
 /**
  * Get all orders of current user
- * @route GET /order/list
- * @access Private
  */
 export const getUserOrders = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+        const page = parseInt(req.query.page) || PAGINATION.DEFAULT_PAGE;
+        const limit = parseInt(req.query.limit) || PAGINATION.DEFAULT_LIMIT;
         const skip = (page - 1) * limit;
 
         const filters = { user: req.user._id };
 
-        // Filter by status
         if (req.query.status) {
             filters.status = req.query.status;
         }
@@ -48,7 +51,7 @@ export const getUserOrders = async (req, res) => {
         });
     } catch (error) {
         console.error('Get orders error:', error);
-        return sendServerError(res, 'Lỗi lấy danh sách đơn hàng');
+        return sendServerError(res, ERROR_MESSAGES[0]);
     }
 };
 
@@ -79,8 +82,6 @@ export const getOrderById = async (req, res) => {
 
 /**
  * Cancel order
- * @route PUT /order/cancel/:id
- * @access Private
  */
 export const cancelOrder = async (req, res) => {
     try {
@@ -93,18 +94,19 @@ export const cancelOrder = async (req, res) => {
         }).populate('items.product');
 
         if (!order) {
-            return sendNotFound(res, 'Đơn hàng không tồn tại');
+            return sendNotFound(res, ERROR_MESSAGES.ORDER_NOT_FOUND);
         }
 
-        if (['shipped', 'delivered', 'cancelled', 'refunded'].includes(order.status)) {
-            return sendError(res, 2, 'Không thể hủy đơn hàng ở trạng thái này');
+        // ✅ USE CONSTANT
+        if (NON_CANCELLABLE_ORDER_STATUSES.includes(order.status)) {
+            return sendError(res, 2, ERROR_MESSAGES.CANNOT_CANCEL_ORDER);
         }
 
-        order.status = 'cancelled';
+        order.status = ORDER_STATUS.CANCELLED;
         order.cancelledAt = new Date();
         order.cancelledBy = req.user._id;
         order.cancelReason = reason || 'Cancelled by customer';
-        order.shipping.status = 'cancelled';
+        order.shipping.status = ORDER_STATUS.CANCELLED;
 
         await order.save();
 
@@ -126,7 +128,7 @@ export const cancelOrder = async (req, res) => {
         return sendSuccess(res, { order }, 'Hủy đơn hàng thành công');
     } catch (error) {
         console.error('Cancel order error:', error);
-        return sendServerError(res, 'Lỗi hủy đơn hàng');
+        return sendServerError(res, ERROR_MESSAGES[0]);
     }
 };
 

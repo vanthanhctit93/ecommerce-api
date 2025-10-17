@@ -1,9 +1,9 @@
+import mongoose from 'mongoose';
 import ProductModel from '../models/Product.js';
 import { isValidSKU } from '../utils/validators.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
-// ✅ ADD IMPORT
 import { 
     sendSuccess, 
     sendError, 
@@ -12,14 +12,21 @@ import {
     sendUnauthorized,
     sendServerError 
 } from '../utils/responseHelper.js';
+
+// ✅ ADD MISSING IMPORTS
 import { deleteCachePattern } from '../config/redis.js';
+import {
+    PRODUCT_STATUS,
+    PRODUCT_LIMITS,
+    PAGINATION,
+    ERROR_MESSAGES,
+    ERROR_CODE,
+    HTTP_STATUS
+} from '../constants/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/**
- * Create product
- */
 export const createProduct = async (req, res, next) => {
     try {
         const { 
@@ -34,30 +41,41 @@ export const createProduct = async (req, res, next) => {
             isFeatured = false
         } = req.body;
 
+        // Validation
         if (!sku || !title || !regularPrice) {
-            return sendValidationError(res, 'Vui lòng nhập đầy đủ thông tin (sku, title, regularPrice)');
+            return sendValidationError(res, ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
         }
 
-        if (regularPrice < 0) {
-            return sendError(res, 6, 'Giá sản phẩm không thể âm');
+        if (regularPrice < PRODUCT_LIMITS.MIN_PRICE) {
+            return sendValidationError(res, 'Giá sản phẩm không thể âm');
         }
 
-        if (salePrice && salePrice < 0) {
-            return sendError(res, 5, 'Giá sale không thể âm');
+        if (salePrice && salePrice < PRODUCT_LIMITS.MIN_PRICE) {
+            return sendValidationError(res, 'Giá sale không thể âm');
         }
 
-        if (inStock < 0) {
-            return sendError(res, 6, 'Số lượng tồn kho không thể âm');
+        if (salePrice && salePrice > regularPrice) {
+            return sendValidationError(res, 'Giá sale không thể lớn hơn giá gốc');
+        }
+
+        if (inStock < PRODUCT_LIMITS.MIN_PRICE) {
+            return sendValidationError(res, 'Số lượng tồn kho không thể âm');
         }
 
         if (!isValidSKU(sku)) {
-            return sendError(res, 7, 'SKU không hợp lệ (3-50 ký tự, chỉ chữ hoa, số và dấu gạch ngang)');
+            return sendValidationError(res, 'SKU không hợp lệ (chỉ chữ hoa, số, dấu gạch ngang, 3-50 ký tự)');
         }
 
         const existingProduct = await ProductModel.findOne({ sku });
 
         if (existingProduct) {
-            return sendError(res, 2, 'SKU đã tồn tại');
+            return res.status(HTTP_STATUS.CONFLICT).json({ 
+                status_code: 0,
+                data: {
+                    error_code: ERROR_CODE.DUPLICATE_ERROR,
+                    message: 'SKU đã tồn tại' 
+                }
+            });
         }
 
         const product = new ProductModel({
@@ -76,20 +94,17 @@ export const createProduct = async (req, res, next) => {
         await product.save();
         await deleteCachePattern('cache:/product/list*');
 
-        return sendSuccess(res, { product }, 'Tạo sản phẩm thành công', 201);
+        return sendSuccess(res, { product }, 'Tạo sản phẩm thành công', HTTP_STATUS.CREATED);
     } catch (err) {
         console.error('Create product error:', err);
         next(err);
     }
 };
 
-/**
- * Get all products
- */
 export const getAllProducts = async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 12;
+        const page = parseInt(req.query.page) || PAGINATION.DEFAULT_PAGE;
+        const limit = parseInt(req.query.limit) || PAGINATION.PRODUCT_DEFAULT_LIMIT;
         const skip = (page - 1) * limit;
 
         // Filters
@@ -110,72 +125,47 @@ export const getAllProducts = async (req, res) => {
         // Price range filter
         if (req.query.minPrice || req.query.maxPrice) {
             filters.regularPrice = {};
-            if (req.query.minPrice) filters.regularPrice.$gte = parseFloat(req.query.minPrice);
-            if (req.query.maxPrice) filters.regularPrice.$lte = parseFloat(req.query.maxPrice);
+            if (req.query.minPrice) {
+                filters.regularPrice.$gte = parseInt(req.query.minPrice);
+            }
+            if (req.query.maxPrice) {
+                filters.regularPrice.$lte = parseInt(req.query.maxPrice);
+            }
         }
 
-        // Search
-        if (req.query.search) {
-            filters.$text = { $search: req.query.search };
+        // Sort
+        let sort = { createdAt: -1 };
+        if (req.query.sort === 'price_asc') {
+            sort = { regularPrice: 1 };
+        } else if (req.query.sort === 'price_desc') {
+            sort = { regularPrice: -1 };
+        } else if (req.query.sort === 'popular') {
+            sort = { soldCount: -1 };
         }
 
-        // Sorting
-        let sort = {};
-        switch (req.query.sort) {
-            case 'price_asc':
-                sort = { regularPrice: 1 };
-                break;
-            case 'price_desc':
-                sort = { regularPrice: -1 };
-                break;
-            case 'newest':
-                sort = { createdAt: -1 };
-                break;
-            case 'popular':
-                sort = { soldCount: -1 };
-                break;
-            case 'rating':
-                sort = { rating: -1 };
-                break;
-            default:
-                sort = { createdAt: -1 };
-        }
-
-        const products = await ProductModel
-            .find(filters)
-            .populate('owner', 'username email')
+        const products = await ProductModel.find(filters)
             .populate('categories', 'name slug')
+            .populate('owner', 'username')
             .sort(sort)
             .skip(skip)
-            .limit(limit)
-            .select('-isDeleted -deletedAt -deletedBy');
+            .limit(limit);
 
         const total = await ProductModel.countDocuments(filters);
 
-        return res.status(200).json({ 
-            status_code: 1,
-            data: {
-                products,
-                pagination: {
-                    page,
-                    limit,
-                    total,
-                    pages: Math.ceil(total / limit)
-                },
-                filters: req.query
+        return sendSuccess(res, {
+            products,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
             }
         });
     } catch (err) {
         console.error('Get products error:', err);
-        return res.status(500).json({
-            status_code: 0,
-            data: {
-                error_code: 0,
-                message: 'Lỗi lấy danh sách sản phẩm'
-            }
-        });
+        return sendServerError(res, ERROR_MESSAGES[ERROR_CODE.SERVER_ERROR]);
     }
-}
+};
 
 /**
  * Get product by ID
@@ -241,7 +231,7 @@ export const updateProduct = async (req, res, next) => {
 
         Object.assign(product, otherUpdates);
         await product.save();
-
+        
         await deleteCachePattern('cache:/product/list*');
         await deleteCachePattern(`cache:/product/${id}`);
 

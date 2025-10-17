@@ -6,44 +6,52 @@ import { mergeGuestCart } from './cartController.js';
 import { 
     sendSuccess, 
     sendError, 
-    sendValidationError, 
-    sendUnauthorized 
+    sendValidationError,
+    sendServerError 
 } from '../utils/responseHelper.js';
+
+// ✅ IMPORT CONSTANTS
+import {
+    ERROR_MESSAGES,
+    ERROR_CODE,
+    TIME,
+    HTTP_STATUS
+} from '../constants/index.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-secret-key';
 
 /**
- * Generate Access Token (ngắn hạn - 15 phút)
+ * Generate Access Token
  */
 function generateAccessToken(userId, username) {
     return jwt.sign(
         { id: userId, username: username }, 
         JWT_SECRET, 
-        { expiresIn: '15m' }
+        { expiresIn: TIME.JWT_ACCESS_EXPIRY }
     );
 }
 
 /**
- * Generate Refresh Token (dài hạn - 7 ngày)
+ * Generate Refresh Token
  */
 function generateRefreshToken(userId, username) {
     return jwt.sign(
         { id: userId, username: username }, 
         JWT_REFRESH_SECRET, 
-        { expiresIn: '7d' }
+        { expiresIn: TIME.JWT_REFRESH_EXPIRY }
     );
 }
 
 /**
- * Đăng ký tài khoản
+ * Register
  */
 export const register = async (req, res, next) => {
     try {
         const { username, email, password } = req.body;
 
         if (!username || !email || !password) {
-            return sendValidationError(res, 'Vui lòng nhập đầy đủ thông tin');
+            return sendValidationError(res, ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
         }
 
         const existingUser = await UserModel.findOne({ 
@@ -51,11 +59,17 @@ export const register = async (req, res, next) => {
         });
 
         if (existingUser) {
-            return sendError(res, 2, 'Username hoặc email đã tồn tại');
+            return res.status(HTTP_STATUS.CONFLICT).json({ 
+                status_code: 0,
+                data: {
+                    error_code: ERROR_CODE.DUPLICATE_ERROR,
+                    message: ERROR_MESSAGES.DUPLICATE_USERNAME_EMAIL
+                }
+            });
         }
 
         if (isSimplePassword(password)) {
-            return sendValidationError(res, 'Mật khẩu quá đơn giản. Cần ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.');
+            return sendValidationError(res, ERROR_MESSAGES.PASSWORD_TOO_SIMPLE);
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -68,44 +82,51 @@ export const register = async (req, res, next) => {
 
         await user.save();
 
-        return sendSuccess(
-            res, 
-            { 
-                user: {
-                    _id: user._id,
-                    username: user.username,
-                    email: user.email
-                }
-            },
-            'Đăng ký thành công',
-            201
-        );
+        return sendSuccess(res, {
+            user: {
+                _id: user._id,
+                username: user.username,
+                email: user.email
+            }
+        }, 'Đăng ký thành công', HTTP_STATUS.CREATED);
     } catch (err) {
         next(err);
     }
 };
 
 /**
- * Đăng nhập
+ * Login
  */
 export const login = async (req, res, next) => {
     try {
         const { username, password } = req.body;
 
         if (!username || !password) {
-            return sendValidationError(res, 'Vui lòng nhập đầy đủ thông tin');
+            return sendValidationError(res, ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
         }
 
         const user = await UserModel.findOne({ username });
 
         if (!user) {
-            return sendUnauthorized(res, 'Username không tồn tại');
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+                status_code: 0,
+                data: {
+                    error_code: ERROR_CODE.UNAUTHORIZED,
+                    message: ERROR_MESSAGES.INVALID_CREDENTIALS
+                }
+            });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return sendUnauthorized(res, 'Mật khẩu không chính xác');
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+                status_code: 0,
+                data: {
+                    error_code: ERROR_CODE.UNAUTHORIZED,
+                    message: ERROR_MESSAGES.INVALID_CREDENTIALS
+                }
+            });
         }
 
         const accessToken = generateAccessToken(user._id, user.username);
@@ -114,7 +135,7 @@ export const login = async (req, res, next) => {
         req.user = user;
         await mergeGuestCart(req);
 
-        return sendSuccess(res, {
+        return sendSuccess(res, { 
             accessToken,
             refreshToken,
             user: {

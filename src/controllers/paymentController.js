@@ -8,7 +8,6 @@ import {
     sendPaymentFailedEmail,
     sendRefundConfirmationEmail
 } from '../services/emailService.js';
-// ✅ ADD IMPORT
 import { 
     sendSuccess, 
     sendError, 
@@ -16,10 +15,19 @@ import {
     sendServerError 
 } from '../utils/responseHelper.js';
 
+import {
+    ORDER_STATUS,
+    PAYMENT_STATUS,
+    PAYMENT_METHOD,
+    SHIPPING_METHOD,
+    ERROR_MESSAGES,
+    ERROR_CODE
+} from '../constants/index.js';
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 /**
- * Validate cart prices với database
+ * Validate cart prices
  */
 async function validateCartPrices(cart) {
     const validatedCart = [];
@@ -29,11 +37,11 @@ async function validateCartPrices(cart) {
         const product = await ProductModel.findById(item.productId);
 
         if (!product || product.isDeleted || !product.isPublished) {
-            throw new Error(`Sản phẩm ${item.title} không còn khả dụng`);
+            throw new Error(`${ERROR_MESSAGES.PRODUCT_NOT_FOUND}: ${item.title}`);
         }
 
         if (product.inStock < item.quantity) {
-            throw new Error(`Sản phẩm ${item.title} chỉ còn ${product.inStock} trong kho`);
+            throw new Error(`${ERROR_MESSAGES.OUT_OF_STOCK}: ${item.title} (còn ${product.inStock})`);
         }
 
         const currentPrice = product.salePrice || product.regularPrice;
@@ -55,26 +63,29 @@ async function validateCartPrices(cart) {
     return { validatedCart, hasChanges };
 }
 
+/**
+ * Checkout
+ */
 export const checkout = async (req, res) => {
     try {
         const cartKey = req.user ? `cart_${req.user._id}` : 'cart';
         const cart = req.session[cartKey];
         
         if (!cart || cart.length === 0) {
-            return sendError(res, 1, 'Giỏ hàng trống');
+            return sendError(res, ERROR_CODE.VALIDATION_ERROR, ERROR_MESSAGES.CART_EMPTY);
         }
 
         const { shippingAddress, shippingMethod } = req.body;
 
         if (!shippingAddress || !shippingAddress.fullName || !shippingAddress.phone || 
             !shippingAddress.address || !shippingAddress.city) {
-            return sendValidationError(res, 'Vui lòng nhập đầy đủ địa chỉ giao hàng');
+            return sendValidationError(res, ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
         }
 
         const addressValidation = validateShippingAddress(shippingAddress);
         
         if (!addressValidation.valid) {
-            return sendError(res, 5, 'Địa chỉ giao hàng không hợp lệ', 400, {
+            return sendError(res, ERROR_CODE.VALIDATION_ERROR, ERROR_MESSAGES.INVALID_ADDRESS, 400, {
                 errors: addressValidation.errors
             });
         }
@@ -83,11 +94,11 @@ export const checkout = async (req, res) => {
         try {
             ({ validatedCart, hasChanges } = await validateCartPrices(cart));
         } catch (error) {
-            return sendError(res, 3, error.message);
+            return sendError(res, ERROR_CODE.BUSINESS_LOGIC_ERROR, error.message);
         }
 
         if (hasChanges) {
-            return sendError(res, 4, 'Giá một số sản phẩm đã thay đổi, vui lòng kiểm tra lại giỏ hàng', 400, {
+            return sendError(res, ERROR_CODE.BUSINESS_LOGIC_ERROR, ERROR_MESSAGES.PRICE_CHANGED, 400, {
                 updatedCart: validatedCart
             });
         }
@@ -102,7 +113,7 @@ export const checkout = async (req, res) => {
             subtotal,
             weight: totalWeight,
             location: shippingAddress.city.toLowerCase(),
-            shippingMethod: shippingMethod || 'standard'
+            shippingMethod: shippingMethod || SHIPPING_METHOD.STANDARD
         });
 
         const tax = calculateTax({
@@ -124,10 +135,10 @@ export const checkout = async (req, res) => {
                 total
             },
             shipping: {
-                method: shippingMethod || 'standard'
+                method: shippingMethod || SHIPPING_METHOD.STANDARD
             },
             payment: {
-                status: 'pending'
+                status: PAYMENT_STATUS.PENDING
             }
         });
 
@@ -164,7 +175,7 @@ export const checkout = async (req, res) => {
         }, 'Tạo đơn hàng thành công');
     } catch (error) {
         console.error('Checkout error:', error);
-        return sendServerError(res, 'Lỗi xử lý thanh toán');
+        return sendServerError(res, ERROR_MESSAGES[ERROR_CODE.SERVER_ERROR]);
     }
 };
 

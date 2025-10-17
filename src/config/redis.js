@@ -95,25 +95,35 @@ export async function deleteCache(key) {
  * Helper: Delete pattern
  */
 export async function deleteCachePattern(pattern) {
-    if (!redis) return false;
-    
+    if (!isRedisAvailable()) {
+        return;
+    }
+
     try {
         const keys = await redis.keys(pattern);
         if (keys.length > 0) {
-            await redis.del(...keys);
+            await redis.del(keys);
+            console.log(`🗑️  Deleted ${keys.length} cache keys matching: ${pattern}`);
         }
-        return true;
     } catch (error) {
-        console.error('Cache delete pattern error:', error.message);
-        return false;
+        console.error('Delete cache pattern error:', error);
     }
 }
 
 /**
  * Helper: Check if Redis is available
  */
-export function isRedisAvailable() {
-    return redis !== null && redis.status === 'ready';
+export async function clearAllCache() {
+    if (!isRedisAvailable()) {
+        return;
+    }
+
+    try {
+        await redis.flushDb();
+        console.log('🗑️  Cleared all Redis cache');
+    } catch (error) {
+        console.error('Clear cache error:', error);
+    }
 }
 
-export default redis;
+export { redis, isRedisAvailable };

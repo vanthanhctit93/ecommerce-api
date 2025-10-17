@@ -111,7 +111,6 @@ if (process.env.NODE_ENV === 'production') {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Session - Use Redis if available, fallback to MongoDB
 const sessionStore = isRedisAvailable()
     ? new RedisStore({ 
         client: redis,
