@@ -3,8 +3,7 @@
         "crawledAt": "2025-10-16T15:24:24.421Z",
         "totalProvinces": 34,
         "totalCommunes": 3321,
-        "source": "https://production.cas.so/address-kit/2025-07-01",
-        "version": "2025-07-01"
+        "version": "1.0.0"
     },
     "provinces": [
         {

@@ -1,7 +1,25 @@
 import express from 'express';
 import { register, login, refreshToken, logout } from '../controllers/authController.js';
 import { getProfile, updateProfile, changePassword, deleteAccount } from '../controllers/userController.js';
-import { getAllArticles, getArticleById, createArticle, updateArticle, deleteArticle } from '../controllers/articleController.js';
+import { 
+    getAllArticles, 
+    getArticleById, 
+    createArticle, 
+    updateArticle, 
+    deleteArticle,
+    restoreArticle,
+    togglePublish,
+    toggleLike,
+    addComment,
+    getFeaturedArticles,
+    getArticlesByCategory,
+    searchArticles,
+    bulkPublishArticles,
+    bulkDeleteArticles,
+    moderateComment,
+    getArticleAnalytics,
+    schedulePublish
+} from '../controllers/articleController.js';
 import { 
     getAllProducts, 
     getProductById, 
@@ -65,11 +83,34 @@ router.delete('/user/account', protect, deleteAccount);
 // ========================================
 // ARTICLE ROUTES
 // ========================================
-router.get('/article/list', getAllArticles); // Public
-router.get('/article/:id', getArticleById); // Public
-router.post('/article/create', protect, createArticle); // Private
-router.put('/article/update/:id', protect, updateArticle); // Private
-router.delete('/article/delete/:id', protect, deleteArticle); // Private
+// Public routes
+router.get('/article/list', getAllArticles);
+router.get('/article/featured', getFeaturedArticles);
+router.get('/article/search', searchArticles);
+router.get('/article/category/:categoryId', getArticlesByCategory);
+router.get('/article/:idOrSlug', getArticleById);
+
+// Private routes
+router.post('/article/create', protect, createArticle);
+router.put('/article/update/:id', protect, updateArticle);
+router.delete('/article/delete/:id', protect, deleteArticle);
+router.put('/article/restore/:id', protect, restoreArticle);
+router.put('/article/toggle-publish/:id', protect, togglePublish);
+router.post('/article/like/:id', protect, toggleLike);
+router.post('/article/comment/:id', protect, addComment);
+
+// Bulk operations
+router.put('/article/bulk-publish', protect, bulkPublishArticles);
+router.delete('/article/bulk-delete', protect, bulkDeleteArticles);
+
+// Comment moderation (admin only)
+router.put('/article/comment/:articleId/:commentId', protect, moderateComment);
+
+// Analytics
+router.get('/article/analytics/:id', protect, getArticleAnalytics);
+
+// Schedule publishing
+router.put('/article/schedule/:id', protect, schedulePublish);
 
 // ========================================
 // PRODUCT ROUTES

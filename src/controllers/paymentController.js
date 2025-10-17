@@ -1,9 +1,11 @@
 import Stripe from 'stripe';
+import mongoose from 'mongoose';
 import Order from '../models/Order.js';
 import ProductModel from '../models/Product.js';
 import { calculateShipping } from '../utils/shipping.js';
 import { calculateTax } from '../utils/tax.js';
 import { validateShippingAddress } from '../utils/shipping.js';
+import { reserveStock, releaseStock, updateSoldCount } from '../utils/stockManager.js';
 import {
     sendOrderConfirmationEmail,
     sendPaymentFailedEmail,
@@ -50,7 +52,11 @@ async function validateCartPrices(cart) {
 }
 
 export const checkout = async (req, res) => {
+    const session = await mongoose.startSession();
+    
     try {
+        session.startTransaction();
+
         const cartKey = req.user ? `cart_${req.user._id}` : 'cart';
         const cart = req.session[cartKey];
         
@@ -117,6 +123,15 @@ export const checkout = async (req, res) => {
             });
         }
 
+        // ✅ Reserve stock atomically (will throw if insufficient stock)
+        await reserveStock(
+            validatedCart.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity
+            })),
+            session
+        );
+
         // ✅ Calculate pricing
         const subtotal = validatedCart.reduce((sum, item) => sum + item.subtotal, 0);
         
@@ -139,7 +154,7 @@ export const checkout = async (req, res) => {
 
         const total = subtotal + shipping.cost + tax.amount;
 
-        // ✅ Create order in database FIRST
+        // ✅ Create order in database with transaction
         const order = new Order({
             user: req.user._id,
             items: validatedCart,
@@ -158,9 +173,15 @@ export const checkout = async (req, res) => {
             }
         });
 
-        await order.save();
+        await order.save({ session });
 
-        // ✅ Create Stripe PaymentIntent
+        // ✅ Clear cart
+        req.session[cartKey] = [];
+
+        // Commit transaction before creating Stripe Payment Intent
+        await session.commitTransaction();
+
+        // ✅ Create Stripe PaymentIntent (outside transaction)
         const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(total),
             currency: 'vnd',
@@ -172,12 +193,9 @@ export const checkout = async (req, res) => {
             }
         });
 
-        // ✅ Update order with paymentIntentId
+        // ✅ Update order with paymentIntentId (separate operation, no transaction needed)
         order.payment.stripePaymentIntentId = paymentIntent.id;
         await order.save();
-
-        // ✅ Clear cart
-        req.session[cartKey] = [];
 
         return res.status(200).json({
             status_code: 1,
@@ -197,6 +215,8 @@ export const checkout = async (req, res) => {
             }
         });
     } catch (error) {
+        // Rollback transaction on any error
+        await session.abortTransaction();
         console.error('Checkout error:', error);
         return res.status(500).json({
             status_code: 0,
@@ -206,6 +226,8 @@ export const checkout = async (req, res) => {
                 error: error.message
             }
         });
+    } finally {
+        session.endSession();
     }
 };
 
@@ -260,7 +282,11 @@ export const stripeWebhook = async (req, res) => {
  * Handle successful payment
  */
 async function handlePaymentSuccess(paymentIntent) {
+    const session = await mongoose.startSession();
+    
     try {
+        session.startTransaction();
+
         const order = await Order.findOne({
             'payment.stripePaymentIntentId': paymentIntent.id
         }).populate('items.product').populate('user');
@@ -276,31 +302,29 @@ async function handlePaymentSuccess(paymentIntent) {
         order.status = 'confirmed';
         order.shipping.status = 'preparing';
 
-        await order.save();
+        await order.save({ session });
 
-        // ✅ Update product stock
-        for (const item of order.items) {
-            await ProductModel.findByIdAndUpdate(
-                item.product,
-                {
-                    $inc: {
-                        inStock: -item.quantity,
-                        soldCount: item.quantity
-                    }
-                }
-            );
-        }
+        // ✅ Update sold count atomically
+        await updateSoldCount(
+            order.items.map(item => ({
+                productId: item.product._id,
+                quantity: item.quantity
+            })),
+            session
+        );
+
+        await session.commitTransaction();
 
         console.log('Payment successful, order updated:', order.orderNumber);
 
-        // TODO: Send confirmation email
+        // Send confirmation email (outside transaction)
         await sendOrderConfirmationEmail(order);
-
-        // TODO: Notify admin
-        // await notifyAdmin(order);
     } catch (error) {
+        await session.abortTransaction();
         console.error('Error handling payment success:', error);
         throw error;
+    } finally {
+        session.endSession();
     }
 }
 
@@ -308,10 +332,14 @@ async function handlePaymentSuccess(paymentIntent) {
  * Handle failed payment
  */
 async function handlePaymentFailed(paymentIntent) {
+    const session = await mongoose.startSession();
+    
     try {
+        session.startTransaction();
+
         const order = await Order.findOne({
             'payment.stripePaymentIntentId': paymentIntent.id
-        }).populate('user');
+        }).populate('user').populate('items.product');
 
         if (!order) {
             console.error('Order not found for paymentIntent:', paymentIntent.id);
@@ -323,15 +351,29 @@ async function handlePaymentFailed(paymentIntent) {
         order.payment.failedReason = paymentIntent.last_payment_error?.message || 'Unknown error';
         order.status = 'cancelled';
 
-        await order.save();
+        await order.save({ session });
+
+        // ✅ Release reserved stock
+        await releaseStock(
+            order.items.map(item => ({
+                productId: item.product._id,
+                quantity: item.quantity
+            })),
+            session
+        );
+
+        await session.commitTransaction();
 
         console.log('Payment failed, order cancelled:', order.orderNumber);
 
-        // TODO: Send failed payment notification
+        // Send failed payment notification (outside transaction)
         await sendPaymentFailedEmail(order);
     } catch (error) {
+        await session.abortTransaction();
         console.error('Error handling payment failure:', error);
         throw error;
+    } finally {
+        session.endSession();
     }
 }
 
@@ -339,10 +381,14 @@ async function handlePaymentFailed(paymentIntent) {
  * Handle canceled payment
  */
 async function handlePaymentCanceled(paymentIntent) {
+    const session = await mongoose.startSession();
+    
     try {
+        session.startTransaction();
+
         const order = await Order.findOne({
             'payment.stripePaymentIntentId': paymentIntent.id
-        });
+        }).populate('items.product');
 
         if (!order) {
             console.error('Order not found for paymentIntent:', paymentIntent.id);
@@ -355,12 +401,26 @@ async function handlePaymentCanceled(paymentIntent) {
         order.cancelledAt = new Date();
         order.cancelReason = 'Payment cancelled by user';
 
-        await order.save();
+        await order.save({ session });
+
+        // ✅ Release reserved stock
+        await releaseStock(
+            order.items.map(item => ({
+                productId: item.product._id,
+                quantity: item.quantity
+            })),
+            session
+        );
+
+        await session.commitTransaction();
 
         console.log('Payment cancelled, order cancelled:', order.orderNumber);
     } catch (error) {
+        await session.abortTransaction();
         console.error('Error handling payment cancellation:', error);
         throw error;
+    } finally {
+        session.endSession();
     }
 }
 

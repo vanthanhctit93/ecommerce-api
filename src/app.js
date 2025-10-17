@@ -15,12 +15,18 @@ import { Server as SocketIO } from 'socket.io';
 import router from './routes/index.js';
 import connectDB from './config/db.js';
 import errorHandler from './middlewares/errorMiddleware.js';
+import { startArticleScheduler, stopArticleScheduler } from './jobs/articleScheduler.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Connect to MongoDB
 connectDB();
+
+// START CRON JOBS
+// if (process.env.NODE_ENV !== 'test') {
+//     startArticleScheduler();
+// }
 
 const app = express();
 const server = http.createServer(app);
@@ -87,6 +93,24 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
     console.log(`Server started on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+process.on('SIGINT', () => {
+    console.log('\n Shutting down gracefully...');
+    stopArticleScheduler();
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGTERM', () => {
+    console.log('\n SIGTERM received, shutting down...');
+    stopArticleScheduler();
+    server.close(() => {
+        console.log('Server closed');
+        process.exit(0);
+    });
 });
 
 export default app;
